@@ -32,11 +32,13 @@ CS-RF-IOC-01_OBJS_vxWorks += $(EPICS_BASE_BIN)/vxComLibrary
 
 # This line says that this IOC Application depends on the
 # xxx Support Module
-CS-RF-IOC-01_LIBS += asyn
 CS-RF-IOC-01_LIBS += FINS
+CS-RF-IOC-01_LIBS += asyn
 
 # We need to link this IOC Application against the EPICS Base libraries
 CS-RF-IOC-01_LIBS += $(EPICS_BASE_IOC_LIBS)
+
+CS-RF-IOC-01_SYS_LIBS_WIN32 += ws2_32
 
 # ---------------------------------------------------
 
