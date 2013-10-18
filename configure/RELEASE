@@ -1,7 +1,9 @@
 TEMPLATE_TOP=$(EPICS_BASE)/templates/makeBaseApp/top
 
 SUPPORT = /dls_sw/prod/R3.14.11/support
-ASYN = $(SUPPORT)/asyn/4-21
+ASYN = $(SUPPORT)/asyn/4-18
 
 # EPICS_BASE usually appears last so other apps can override stuff:
 EPICS_BASE=/dls_sw/epics/R3.14.11/base
+
+include $(TOP)/../../../ISIS_CONFIG.$(EPICS_HOST_ARCH)

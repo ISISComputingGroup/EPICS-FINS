@@ -76,11 +76,32 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <stdint.h>
 
 #ifdef vxWorks
 #include <sockLib.h>
 #include <inetLib.h>
 #endif
+
+#ifdef _WIN32
+#include <Ws2tcpip.h>
+// need to look more at using epicsSocketConvertErrnoToString() but on first glance that
+// would appear to return a default message rather than translate the actual error code 
+static const char* socket_errmsg()
+{
+	static char error_message[2048];
+    if ( FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 
+               NULL, WSAGetLastError(),
+               MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+               error_message, sizeof(error_message), NULL) == 0 )
+	{
+	    strcpy(error_message, "winsock error");
+	}
+	return error_message;
+}
+#else
+#define socket_errmsg()	strerror(errno)
+#endif /* _WIN32 */
 
 #include <cantProceed.h>
 #include <epicsMutex.h>
@@ -193,7 +214,7 @@ typedef struct drvPvt
 	epicsMutexId mutexId;
 
 	int connected;
-	int fd;
+	SOCKET fd;
 	
 	const char *portName;
 	asynInterface common;
@@ -301,7 +322,7 @@ enum FINS_COMMANDS
 	FINS_EXPLICIT
 };
 
-extern int errno;
+//extern int errno;
 
 int finsUDPInit(const char *portName, const char *address)
 {
@@ -456,7 +477,7 @@ int finsUDPInit(const char *portName, const char *address)
 
 	if ((pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0)) < 0)
 	{
-		printf("%s: Can't create socket: %s", FUNCNAME, strerror(SOCKERRNO));
+		printf("%s: Can't create socket: %s", FUNCNAME, socket_errmsg());
 		return (-1);
 	}
 
@@ -467,7 +488,7 @@ int finsUDPInit(const char *portName, const char *address)
 		struct sockaddr_in addr;
 		const int addrlen = sizeof(struct sockaddr_in);
 		
-		bzero((char *) &(addr), addrlen);
+		memset(&(addr), 0, addrlen);
 
 		addr.sin_addr.s_addr = htonl(INADDR_ANY);
 		addr.sin_family = AF_INET;
@@ -479,7 +500,7 @@ int finsUDPInit(const char *portName, const char *address)
 		{
 			epicsSocketDestroy(pdrvPvt->fd);
 			
-			printf("%s: bind failed with %s.\n", FUNCNAME, strerror(errno));
+			printf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
 			return (-1);
 		}
 		
@@ -496,7 +517,7 @@ int finsUDPInit(const char *portName, const char *address)
 		
 			if (getsockname(pdrvPvt->fd, (struct sockaddr *) &name, &namelen) < 0)
 			{
-				printf("%s: getsockname failed with %s.\n", FUNCNAME, strerror(errno));
+				printf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
 				
 				return (-1);
 			}
@@ -506,7 +527,7 @@ int finsUDPInit(const char *portName, const char *address)
 		
 	/* destination port address used later in sendto() */
 
-		bzero((char *) &pdrvPvt->addr, addrlen);
+		memset(&pdrvPvt->addr, 0, addrlen);
 /*
 		pdrvPvt->addr.sin_family = AF_INET;
 		pdrvPvt->addr.sin_port = htons(FINS_UDP_PORT);
@@ -627,6 +648,8 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 {
 	struct sockaddr from_addr;
 	int bytes;
+	fd_set reply_fds;
+	struct timeval no_wait;
 #ifdef vxWorks
 	int iFromLen = 0;
 #else
@@ -634,8 +657,19 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 #endif		
 	do
 	{			
-		bytes = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, MSG_DONTWAIT, &from_addr, &iFromLen);
-			
+// Winsock lacks MSG_DONWAIT so we need to use select() instead, which should work on both Linux and Windows
+//		bytes = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, MSG_DONTWAIT, &from_addr, &iFromLen);
+		FD_ZERO(&reply_fds);
+		FD_SET(pdrvPvt->fd, &reply_fds);
+		no_wait.tv_sec = no_wait.tv_usec = 0;
+		if ( select((int)pdrvPvt->fd + 1, &reply_fds, NULL, NULL, &no_wait) > 0 ) // nfds parameter is ignored on Windows, so cast to avoid warning
+		{
+			bytes = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0, &from_addr, &iFromLen);
+		}
+		else
+		{
+			bytes = 0;
+		}
 		if (bytes > 0)
 		{
 			asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, "%s: port %s, flushed %d bytes.\n", func, pdrvPvt->portName, bytes);
@@ -906,7 +940,7 @@ static int finsUDPread(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, const s
 	
 	if (sendto(pdrvPvt->fd, pdrvPvt->message, sendlen, 0, (struct sockaddr *) &pdrvPvt->addr, addrlen) != sendlen)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, sendto() failed with %s.\n", FUNCNAME, pdrvPvt->portName, strerror(errno));
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, sendto() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 		return (-1);
 	}
 
@@ -934,11 +968,11 @@ static int finsUDPread(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, const s
 
 		errno = 0;
 		
-		switch (select(pdrvPvt->fd + 1, &rfds, NULL, NULL, &tv))
+		switch (select((int)pdrvPvt->fd + 1, &rfds, NULL, NULL, &tv))  // nfds parameter is ignored on Windows, so cast to avoid warning 
 		{
 			case -1:
 			{
-				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() failed with %s.\n", FUNCNAME, pdrvPvt->portName, strerror(errno));
+				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 	
 				return (-1);
 				break;
@@ -970,7 +1004,7 @@ static int finsUDPread(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, const s
 		
 		if ((recvlen = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0, &from_addr, &iFromLen)) < 0)
 		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, strerror(errno));
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 			return (-1);
 		}
 	}
@@ -1477,7 +1511,7 @@ static int finsUDPwrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *data, 
 	
 	if (sendto(pdrvPvt->fd, pdrvPvt->message, sendlen, 0, (struct sockaddr *) &pdrvPvt->addr, addrlen) != sendlen)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, sendto() failed with %s.\n", FUNCNAME, pdrvPvt->portName, strerror(errno));
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, sendto() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 		return (-1);
 	}
 
@@ -1505,11 +1539,11 @@ static int finsUDPwrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *data, 
 		
 		errno = 0;
 		
-		switch (select(pdrvPvt->fd + 1, &rfds, NULL, NULL, &tv))
+		switch (select((int)pdrvPvt->fd + 1, &rfds, NULL, NULL, &tv)) // nfds parameter is ignored on Windows, so cast to avoid warning
 		{
 			case -1:
 			{
-				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() failed with %s.\n", FUNCNAME, pdrvPvt->portName, strerror(errno));
+				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 
 				return (-1);
 				break;
@@ -2895,7 +2929,7 @@ epicsExportRegistrar(finsUDPRegister);
 
 int finsTest(char *address)
 {
-	int fd;
+	SOCKET fd;
 	struct sockaddr_in addr;
 	const int addrlen = sizeof(struct sockaddr_in);
 	uint8_t node;
@@ -2906,7 +2940,7 @@ int finsTest(char *address)
 	
 /* open a datagram socket */
 
-	fd = socket(PF_INET, SOCK_DGRAM, 0);
+	fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0);
 	
 	if (fd < 0)
 	{
@@ -2914,7 +2948,7 @@ int finsTest(char *address)
 		return (-1);
 	}
 	
-	bzero((char *) &(addr), addrlen);
+	memset(&(addr), 0, addrlen);
 
 /* ask for a free port for incoming UDP packets */
 
@@ -2928,7 +2962,7 @@ int finsTest(char *address)
 	{
 		perror("finsTest: bind failed");
 		
-		close(fd);
+		epicsSocketDestroy(fd);
 		return (-1);
 	}
 
@@ -2948,7 +2982,7 @@ int finsTest(char *address)
 	
 /* destination port address used later in sendto() */
 
-	bzero((char *) &addr, addrlen);
+	memset(&addr, 0, addrlen);
 
 /*
 	addr.sin_family = AF_INET;
@@ -2959,7 +2993,7 @@ int finsTest(char *address)
 
 	if (aToIPAddr(address, FINS_UDP_PORT, &addr) < 0)
 	{
-		close(fd);
+		epicsSocketDestroy(fd);
 		printf("finsTest: Bad IP address %s\n", address);
 		return (-1);
 	}
@@ -3002,7 +3036,7 @@ int finsTest(char *address)
 	if (sendto(fd, message, sendlen, 0, (struct sockaddr *) &addr, addrlen) != sendlen)
 	{
 		perror("finsTest: sendto");
-		close(fd);
+		epicsSocketDestroy(fd);
 		return (-1);
 	}
 
@@ -3020,7 +3054,7 @@ int finsTest(char *address)
 		tv.tv_sec = FINS_TIMEOUT;
 		tv.tv_usec = 0;
 
-		switch (select(fd + 1, &rfds, NULL, NULL, &tv))
+		switch (select((int)fd + 1, &rfds, NULL, NULL, &tv)) // nfds parameter is ignored on Windows, so cast to avoid warning
 		{
 			case -1:
 			{
@@ -3055,7 +3089,7 @@ int finsTest(char *address)
 		if ((recvlen = recvfrom(fd, message, FINS_MAX_MSG, 0, &from_addr, &iFromLen)) < 0)
 		{
 			perror("finsTest: recvfrom");
-			close(fd);
+			epicsSocketDestroy(fd);
 			return (-1);
 		}
 	}
@@ -3195,7 +3229,7 @@ int finsTest(char *address)
 		}
 	}
 		
-	close(fd);
+	epicsSocketDestroy(fd);
 	
 	return (0);
 }
