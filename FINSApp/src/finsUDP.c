@@ -85,22 +85,6 @@
 
 #ifdef _WIN32
 #include <Ws2tcpip.h>
-// need to look more at using epicsSocketConvertErrnoToString() but on first glance that
-// would appear to return a default message rather than translate the actual error code 
-static const char* socket_errmsg()
-{
-	static char error_message[2048];
-    if ( FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, 
-               NULL, WSAGetLastError(),
-               MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-               error_message, sizeof(error_message), NULL) == 0 )
-	{
-	    strcpy(error_message, "winsock error");
-	}
-	return error_message;
-}
-#else
-#define socket_errmsg()	strerror(errno)
 #endif /* _WIN32 */
 
 #include <cantProceed.h>
@@ -208,6 +192,13 @@ static const char* socket_errmsg()
 	#define WSWAP32 BESWAP32
 	
 #endif
+
+static const char* socket_errmsg()
+{
+	static char error_message[2048];
+	epicsSocketConvertErrnoToString(error_message, sizeof(error_message));
+	return error_message;
+}
 
 typedef struct drvPvt
 {
