@@ -1,0 +1,1822 @@
+4 0 1
+beginScreenProperties
+major 4
+minor 0
+release 1
+x 732
+y 293
+w 750
+h 581
+font "arial-medium-r-18.0"
+ctlFont "arial-medium-r-18.0"
+btnFont "arial-medium-r-18.0"
+fgColor index 14
+bgColor index 3
+textColor index 14
+ctlFgColor1 index 14
+ctlFgColor2 index 0
+ctlBgColor1 index 0
+ctlBgColor2 index 14
+topShadowColor index 1
+botShadowColor index 11
+title "RF LN2 Buffer Tank"
+showGrid
+snapToGrid
+gridSize 5
+disableScroll
+endScreenProperties
+
+# (Rectangle)
+object activeRectangleClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 185
+y 45
+w 170
+h 320
+lineColor index 14
+fillColor index 0
+endObjectProperties
+
+# (Rectangle)
+object activeRectangleClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 5
+y 45
+w 170
+h 320
+lineColor index 14
+fillColor index 0
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 0
+y 0
+w 750
+h 30
+font "device-medium-r-18.0"
+fontAlign "center"
+fgColor index 14
+bgColor index 68
+value {
+  "CS-RF-IOC-01 on CS03R-CS-SERV-40"
+}
+border
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 65
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "P"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 95
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "I"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 125
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "D"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 225
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Set"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 255
+w 50
+h 20
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Pressure"
+}
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 65
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:P"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 95
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:I"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 125
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:D"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 225
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PRESSURE:R"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 255
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PT1944"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 125
+y 65
+w 40
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:PS"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 125
+y 95
+w 40
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:IS"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 125
+y 125
+w 40
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:DS"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 125
+y 225
+w 40
+h 20
+controlPv "SR-RF-LN2-02:PRESSURE:S"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 155
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:F"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 65
+y 185
+w 50
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:T"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 155
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Filter"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 185
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Time"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 35
+y 35
+w 110
+h 20
+font "arial-medium-r-12.0"
+fontAlign "center"
+fgColor index 14
+bgColor index 3
+value {
+  " PCV1941 Control "
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 65
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "P"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 95
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "I"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 125
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "D"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 225
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Set"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 255
+w 35
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Level"
+}
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 65
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:P"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 95
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:I"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 125
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:D"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 225
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LEVEL:R"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 255
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LEVEL"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 305
+y 65
+w 40
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:PS"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 305
+y 95
+w 40
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:IS"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 305
+y 125
+w 40
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:DS"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 305
+y 225
+w 40
+h 20
+controlPv "SR-RF-LN2-02:LEVEL:S"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 155
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:F"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 245
+y 185
+w 50
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:T"
+font "arial-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 155
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Filter"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 185
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Time"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 215
+y 35
+w 110
+h 20
+font "arial-medium-r-12.0"
+fontAlign "center"
+fgColor index 14
+bgColor index 3
+value {
+  " LCV1931 Control "
+}
+endObjectProperties
+
+# (Meter)
+object activeMeterClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 5
+y 375
+w 170
+h 110
+caseColor index 6
+scaleColor index 14
+scaleAlarm
+labelColor index 14
+fgColor index 14
+bgColor index 4
+topShadowColor index 1
+botShadowColor index 11
+readPv "SR-RF-LN2-02:PT1944"
+label "Pressure Bar"
+showScale
+scaleFormat "FFloat"
+scalePrecision "1"
+scaleLimitsFromDb
+useDisplayBg
+labelIntervals "4"
+majorIntervals "2"
+complexNeedle
+3d
+scaleMin "0"
+scaleMax "3000"
+labelFontTag "arial-medium-r-10.0"
+scaleFontTag "helvetica-medium-r-10.0"
+endObjectProperties
+
+# (Meter)
+object activeMeterClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 185
+y 375
+w 170
+h 110
+caseColor index 6
+scaleColor index 14
+scaleAlarm
+labelColor index 14
+fgColor index 14
+bgColor index 4
+topShadowColor index 1
+botShadowColor index 11
+readPv "SR-RF-LN2-02:LEVEL"
+label "Level %"
+showScale
+scaleFormat "FFloat"
+scalePrecision "0"
+scaleLimitsFromDb
+useDisplayBg
+labelIntervals "5"
+majorIntervals "2"
+complexNeedle
+3d
+labelFontTag "arial-medium-r-10.0"
+scaleFontTag "helvetica-medium-r-10.0"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 85
+y 495
+w 110
+h 20
+controlPv "SR-RF-LN2-02:MODEL:CPU"
+font "courier-medium-r-14.0"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 85
+y 525
+w 110
+h 20
+controlPv "SR-RF-LN2-02:MODEL:ETN"
+font "courier-medium-r-14.0"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 85
+y 555
+w 110
+h 20
+controlPv "SR-RF-LN2-02:MODE"
+font "courier-medium-r-14.0"
+fontAlign "center"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 435
+y 495
+w 50
+h 20
+controlPv "SR-RF-LN2-02:CYCLE:MEAN"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 435
+y 525
+w 50
+h 20
+controlPv "SR-RF-LN2-02:CYCLE:MAX"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 435
+y 555
+w 50
+h 20
+controlPv "SR-RF-LN2-02:CYCLE:MIN"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 285
+y 495
+w 50
+h 20
+controlPv "SR-RF-LN2-02:UNITS"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 285
+y 525
+w 50
+h 20
+controlPv "SR-RF-LN2-02:POWERINTS"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 285
+y 555
+w 50
+h 20
+controlPv "SR-RF-LN2-02:POWERON"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 495
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "I/O Units"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 525
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Power Trips"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 555
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Power On"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 355
+y 495
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Cycle Mean"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 355
+y 525
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Cycle Max"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 355
+y 555
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Cycle Min"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 5
+y 495
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "CPU Model"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 5
+y 525
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Eth Model"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 5
+y 555
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Mode"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 125
+y 255
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Bar"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 305
+y 255
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "%"
+}
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 600
+y 555
+w 30
+h 20
+controlPv "SR-RF-LN2-02:CLOCK:YEAR"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 565
+y 555
+w 30
+h 20
+controlPv "SR-RF-LN2-02:CLOCK:MON"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 530
+y 555
+w 30
+h 20
+controlPv "SR-RF-LN2-02:CLOCK:DAY"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 640
+y 555
+w 30
+h 20
+controlPv "SR-RF-LN2-02:CLOCK:HOUR"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 675
+y 555
+w 30
+h 20
+controlPv "SR-RF-LN2-02:CLOCK:MIN"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 710
+y 555
+w 30
+h 20
+controlPv "SR-RF-LN2-02:CLOCK:SEC"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+fgAlarm
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 1
+x 465
+y 515
+w 0
+h 0
+lineColor index 10
+fillColor index 0
+lineWidth 2
+numPoints 1
+xPoints {
+  0 465
+}
+yPoints {
+  0 515
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 125
+y 185
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "s"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 305
+y 185
+w 40
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "s"
+}
+endObjectProperties
+
+# (Shell Command)
+object shellCmdClass
+beginObjectProperties
+major 4
+minor 2
+release 0
+x 610
+y 430
+w 130
+h 30
+fgColor index 14
+bgColor index 0
+topShadowColor index 1
+botShadowColor index 11
+font "arial-medium-r-12.0"
+buttonLabel "StripTool Tank"
+numCmds 1
+command {
+  0 "StripTool striptoolTank.conf"
+}
+endObjectProperties
+
+# (Button)
+object activeButtonClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 55
+y 325
+w 60
+h 30
+fgColor index 14
+onColor index 4
+offColor index 5
+inconsistentColor index 0
+topShadowColor index 1
+botShadowColor index 11
+controlPv "SR-RF-LN2-02:PPID"
+indicatorPv "SR-RF-LN2-02:PPID:R"
+3d
+font "arial-medium-r-12.0"
+objType "controls"
+endObjectProperties
+
+# (Button)
+object activeButtonClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 235
+y 325
+w 60
+h 30
+fgColor index 14
+onColor index 4
+offColor index 5
+inconsistentColor index 0
+topShadowColor index 1
+botShadowColor index 11
+controlPv "SR-RF-LN2-02:LPID"
+indicatorPv "SR-RF-LN2-02:LPID:R"
+3d
+font "arial-medium-r-12.0"
+objType "controls"
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 205
+y 295
+w 110
+h 20
+
+beginGroup
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 275
+y 295
+w 40
+h 20
+controlPv "SR-RF-LN2-02:LCV1931:M"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 205
+y 295
+w 60
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Valve Set"
+}
+endObjectProperties
+
+endGroup
+
+visPv "SR-RF-LN2-02:LPID:R"
+visMin "0"
+visMax "1"
+endObjectProperties
+
+# (Group)
+object activeGroupClass
+beginObjectProperties
+major 4
+minor 0
+release 0
+x 25
+y 295
+w 110
+h 20
+
+beginGroup
+
+# (Text Control)
+object activeXTextDspClass
+beginObjectProperties
+major 4
+minor 5
+release 0
+x 95
+y 295
+w 40
+h 20
+controlPv "SR-RF-LN2-02:PCV1941:M"
+font "arial-medium-r-12.0"
+fgColor index 25
+bgColor index 5
+editable
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "controls"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 25
+y 295
+w 60
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Valve Set"
+}
+endObjectProperties
+
+endGroup
+
+visPv "SR-RF-LN2-02:PPID:R"
+visMin "0"
+visMax "1"
+endObjectProperties
+
+# (Shell Command)
+object shellCmdClass
+beginObjectProperties
+major 4
+minor 2
+release 0
+x 610
+y 470
+w 130
+h 30
+fgColor index 14
+bgColor index 0
+topShadowColor index 1
+botShadowColor index 11
+font "arial-medium-r-12.0"
+buttonLabel "StripTool Temp"
+numCmds 1
+command {
+  0 "StripTool striptoolTemp.conf"
+}
+endObjectProperties
+
+# (Embedded Window)
+object activePipClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 365
+y 45
+w 375
+h 375
+fgColor index 14
+bgColor index 0
+topShadowColor index 1
+botShadowColor index 11
+displaySource "file"
+file "$(P)"
+sizeOfs 5
+numDsps 0
+endObjectProperties
+
+# (Menu Mux)
+object menuMuxClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 365
+y 430
+w 100
+h 35
+fgColor index 14
+bgColor index 5
+topShadowColor index 1
+botShadowColor index 11
+controlPv "LOC\\p=s:A"
+font "arial-medium-r-14.0"
+numItems 2
+symbolTag {
+  0 "Image 1"
+  1 "Image 2"
+}
+symbol0 {
+  0 "P"
+  1 "P"
+}
+value0 {
+  0 "Image1"
+  1 "Image2"
+}
+endObjectProperties
+

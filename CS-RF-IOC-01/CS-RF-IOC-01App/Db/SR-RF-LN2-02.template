@@ -1,0 +1,1184 @@
+# RF LN2 Buffer Tank PLC
+
+# 1000 Litre Liquid Nitrogen Tank PLC Level/Pressure Control
+#
+# address Map:
+#
+#	DM 100	Level Demand		SR-RF-LN2-02:LEVEL:R	SR-RF-LN2-02:LEVEL:S
+#	DM 101	P			SR-RF-LN2-02:LCV1931:P	SR-RF-LN2-02:LCV1931:PS
+#	DM 102	I			SR-RF-LN2-02:LCV1931:I	SR-RF-LN2-02:LCV1931:IS
+#	DM 103	D			SR-RF-LN2-02:LCV1931:D	SR-RF-LN2-02:LCV1931:DS
+#	DM 104	Time			SR-RF-LN2-02:LCV1931:T
+#	DM 105	Filter			SR-RF-LN2-02:LCV1931:F
+#	DM 110	Readback (12-bit)	SR-RF-LN2-02:LEVEL
+
+#	DM 120	Pressure Demand		SR-RF-LN2-02:PRESSURE:R	SR-RF-LN2-02:PRESSURE:S
+#	DM 121	P			SR-RF-LN2-02:PCV1941:P	SR-RF-LN2-02:PCV1941:PS
+#	DM 122	I			SR-RF-LN2-02:PCV1941:I	SR-RF-LN2-02:PCV1941:IS
+#	DM 123	D			SR-RF-LN2-02:PCV1941:D	SR-RF-LN2-02:PCV1941:DS
+#	DM 124	Time			SR-RF-LN2-02:PCV1941:T
+#	DM 125	Filter			SR-RF-LN2-02:PCV1941:F
+#	DM 130	Readback (12-bit)	SR-RF-LN2-02:PT1944	alias SR-RF-LN2-02:PRESSURE
+
+#	DM 131	Temp 1 (x10)		SR-RF-LN2-02:TT1940
+#	DM 132	Temp 2 (x10)		SR-RF-LN2-02:TT1945
+#	DM 133	Temp 3 (x10)		SR-RF-LN2-02:TT1935
+
+#	DM 134	Pressure		SR-RF-LN2-02:PT1934	0-6 bar
+#	DM 135	Valve position get	SR-RF-LN2-02:PCV1941:V
+#	DM 320	Valve position set	SR-RF-LN2-02:PCV1941:O
+#	DM 310	Valve position set	SR-RF-LN2-02:LCV1931:O
+
+#	AR 336	UNITS
+#	AR 510
+#	AR 511
+#	AR 514	POWERINTS
+#	AR 523	POWERON
+
+####################################################################################################
+
+# read all parameters in a single block read
+
+record(waveform, "$(device):DMREAD100")
+{
+	field(DTYP, "asynInt16ArrayIn")
+	field(INP,  "@asyn($(port), 100, 5.0) FINS_DM_READ")
+	field(NELM, "230")
+	field(FTVL, "SHORT")
+	field(SCAN, "1 second")
+}
+
+### PCV1941 Pressure Control Valve parameters ######################################################
+
+
+#-- Pressure demand --------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM120")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "20")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PRESSURE:R")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PRESSURE:R")
+{
+	field(DESC, "Pressure demand readback")
+
+	field(CALC, "A/4095*6")
+	field(INPA, "$(device):DM120 MS")
+
+	field(HIHI, "0")
+	field(HHSV, "NO_ALARM")
+	field(HIGH, "0")
+	field(HSV,  "NO_ALARM")
+	field(LOW,  "0")
+	field(LSV,  "NO_ALARM")
+	field(LOLO, "0")
+	field(LLSV, "NO_ALARM")
+
+	field(HOPR, "6")
+	field(LOPR, "0")
+	field(EGU,  "Bar")
+	field(PREC, "1")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):PRESSURE:S")
+{
+	field(DESC, "Pressure Set")
+	field(DTYP, "Raw Soft Channel")
+	field(HOPR, "6")
+	field(LOPR, "0")
+	field(EGU,  "Bar")
+	field(DRVH, "6")
+	field(DRVL, "0")
+	field(PREC, "2")
+
+# 6 / 4095
+
+	field(ASLO, "0.001465201")
+	field(OUT,  "$(device):PRESSURE:SW PP")
+}
+
+record(ao, "$(device):PRESSURE:SW")
+{
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 120, 5.0) FINS_DM_WRITE_NOREAD")
+	field(DRVH, "4095")
+	field(DRVL, "0")
+}
+
+#-- Pressure ---------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM130")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "30")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PRESSURE")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PT1944")
+{
+	field(DESC, "Tank Pressure")
+
+	field(CALC, "A/4095*6")
+	field(INPA, "$(device):DM130 MS")
+
+	field(HIHI, "5")
+	field(HHSV, "MAJOR")
+	field(HIGH, "4")
+	field(HSV,  "MINOR")
+	field(LOW,  "0.5")
+	field(LSV,  "MINOR")
+	field(LOLO, "0.1")
+	field(LLSV, "MAJOR")
+	field(HYST, "0.2")
+
+	field(HOPR, "6")
+	field(LOPR, "0")
+	field(PREC, "2")
+	field(EGU,  "Bar")
+	field(MDEL, "0.01")
+	field(ADEL, "0.01")
+
+	alias("$(device):PRESSURE")
+}
+
+#-- PCV1941 valve position -------------------------------------------------------------------------
+
+record(subArray, "$(device):DM135")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "35")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:V")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PCV1941:V")
+{
+	field(DESC, "Valve position readback")
+	field(INPA, "$(device):DM135 MS")
+	field(CALC, "A/4095*100")
+	field(PREC, "1")
+	field(EGU,  "%")
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(ADEL, "5")
+	field(MDEL, "0.1")
+}
+
+record(subArray, "$(device):DM320")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "220")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:O")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PCV1941:O")
+{
+	field(DESC, "Valve set position")
+	field(INPA, "$(device):DM320 MS")
+	field(CALC, "A/4095*100")
+	field(PREC, "1")
+	field(EGU,  "%")
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(ADEL, "5")
+	field(MDEL, "0.1")
+}
+
+# manual valve position
+
+#% archiver 1 Monitor
+
+record(ao, "$(device):PCV1941:M")
+{
+	field(DESC, "Manual valve position")
+	field(DTYP, "Raw Soft Channel")
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(EGU,  "%")
+	field(DRVH, "100")
+	field(DRVL, "0")
+
+# 100 / 4095
+
+	field(ASLO, "0.024420024")
+	field(OUT,  "$(device):PCV1941:X PP")
+}
+
+record(ao, "$(device):PCV1941:X")
+{
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 320, 5.0) FINS_DM_WRITE_NOREAD")
+	field(DRVH, "4095")
+	field(DRVL, "0")
+}
+
+#-- P Gain -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM121")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "21")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:P")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):PCV1941:P")
+{
+	field(DESC, "PCV1941 P gain")
+
+	field(INP, "$(device):DM121 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):PCV1941:PS")
+{
+	field(DESC, "PCV1941 P gain Set")
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 121, 5.0) FINS_DM_WRITE")
+	field(DRVH, "9999")
+	field(DRVL, "1")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- I Gain -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM122")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "22")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:I")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):PCV1941:I")
+{
+	field(DESC, "PCV1941 I gain")
+
+	field(INP, "$(device):DM122 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):PCV1941:IS")
+{
+	field(DESC, "PCV1941 I gain Set")
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 122, 5.0) FINS_DM_WRITE")
+	field(DRVH, "9999")
+	field(DRVL, "1")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- D Gain -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM123")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "23")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:D")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):PCV1941:D")
+{
+	field(DESC, "PCV1941 D gain")
+
+	field(INP, "$(device):DM123 MS")
+
+	field(HIHI, "8191")
+	field(HHSV, "MAJOR")
+	field(LOLO, "0")
+	field(LLSV, "MAJOR")
+
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):PCV1941:DS")
+{
+	field(DESC, "PCV1941 D gain Set")
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 123, 5.0) FINS_DM_WRITE")
+	field(DRVH, "8191")
+	field(DRVL, "0")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- Time -------------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM124")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "24")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:T")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PCV1941:T")
+{
+	field(DESC, "PCV1941 Time")
+
+	field(CALC, "A*0.01")
+	field(INPA, "$(device):DM124 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(PREC, "2")
+	field(EGU,  "s")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- Filter -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM125")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "25")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):PCV1941:F")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PCV1941:F")
+{
+	field(DESC, "PCV1941 Filter")
+
+	field(CALC, "A")
+	field(INPA, "$(device):DM125 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(EGU,  "")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+### LCV1931 Level Control Valve parameters #########################################################
+
+
+#-- Level demand -----------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM100")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "0")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LEVEL:R")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):LEVEL:R")
+{
+	field(DESC, "Level Demand readback")
+
+	field(CALC, "A/4095*100")
+	field(INPA, "$(device):DM100 MS")
+
+	field(HIHI, "0")
+	field(HHSV, "NO_ALARM")
+	field(HIGH, "0")
+	field(HSV,  "NO_ALARM")
+	field(LOW,  "0")
+	field(LSV,  "NO_ALARM")
+	field(LOLO, "0")
+	field(LLSV, "NO_ALARM")
+
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(EGU,  "%")
+	field(PREC, "1")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):LEVEL:S")
+{
+	field(DESC, "Level Set")
+	field(DTYP, "Raw Soft Channel")
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(EGU,  "%")
+	field(DRVH, "100")
+	field(DRVL, "0")
+	field(PREC, "2")
+
+# 100 / 4095
+
+	field(ASLO, "0.024420024")
+	field(OUT,  "$(device):LEVEL:SW PP")
+}
+
+record(ao, "$(device):LEVEL:SW")
+{
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 100, 5.0) FINS_DM_WRITE")
+	field(DRVH, "4095")
+	field(DRVL, "0")
+}
+
+#-- Level ------------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM110")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "10")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LEVEL")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):LEVEL")
+{
+	field(DESC, "Tank Level")
+
+	field(CALC, "A/4095*100")
+	field(INPA, "$(device):DM110 MS")
+
+	field(HIHI, "95")
+	field(HHSV, "MAJOR")
+	field(HIGH, "90")
+	field(HSV,  "MINOR")
+	field(LOW,  "20")
+	field(LSV,  "MINOR")
+	field(LOLO, "10")
+	field(LLSV, "MAJOR")
+
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(PREC, "1")
+	field(EGU,  "%")
+	field(MDEL, "0.1")
+	field(ADEL, "0.5")
+}
+
+#-- LCV1931 valve position -------------------------------------------------------------------------
+
+record(subArray, "$(device):DM310")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "210")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LCV1931:O")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):LCV1931:O")
+{
+	field(DESC, "Valve set position")
+	field(INPA, "$(device):DM310 MS")
+	field(CALC, "A/4095*100")
+	field(PREC, "1")
+	field(EGU,  "%")
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(ADEL, "5")
+	field(MDEL, "0.1")
+}
+
+# manual valve position
+
+#% archiver 1 Monitor
+
+record(ao, "$(device):LCV1931:M")
+{
+	field(DESC, "Manual valve position")
+	field(DTYP, "Raw Soft Channel")
+	field(HOPR, "100")
+	field(LOPR, "0")
+	field(EGU,  "%")
+	field(DRVH, "100")
+	field(DRVL, "0")
+
+# 100 / 4095
+
+	field(ASLO, "0.024420024")
+	field(OUT,  "$(device):LCV1931:X PP")
+}
+
+record(ao, "$(device):LCV1931:X")
+{
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 310, 5.0) FINS_DM_WRITE_NOREAD")
+	field(DRVH, "4095")
+	field(DRVL, "0")
+}
+
+#-- P Gain -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM101")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "1")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LCV1931:P")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):LCV1931:P")
+{
+	field(DESC, "LCV1931 P gain")
+
+	field(INP, "$(device):DM101 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):LCV1931:PS")
+{
+	field(DESC, "LCV1931 P gain Set")
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 101, 5.0) FINS_DM_WRITE")
+	field(DRVH, "9999")
+	field(DRVL, "1")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- I Gain -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM102")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "2")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LCV1931:I")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):LCV1931:I")
+{
+	field(DESC, "LCV1931 I gain")
+
+	field(INP, "$(device):DM102 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):LCV1931:IS")
+{
+	field(DESC, "LCV1931 I gain Set")
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 102, 5.0) FINS_DM_WRITE")
+	field(DRVH, "9999")
+	field(DRVL, "1")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- D Gain -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM103")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "3")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LCV1931:D")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):LCV1931:D")
+{
+	field(DESC, "LCV1931 D gain")
+
+	field(INP, "$(device):DM103 MS")
+
+	field(HIHI, "8191")
+	field(HHSV, "MAJOR")
+	field(LOLO, "0")
+	field(LLSV, "MAJOR")
+
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+record(ao, "$(device):LCV1931:DS")
+{
+	field(DESC, "LCV1931 D gain Set")
+	field(DTYP, "asynInt32")
+	field(OUT,  "@asyn($(port), 103, 5.0) FINS_DM_WRITE")
+	field(DRVH, "8191")
+	field(DRVL, "0")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- Time -------------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM104")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "4")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LCV1931:T")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):LCV1931:T")
+{
+	field(DESC, "LCV1931 Time")
+
+	field(CALC, "A*0.01")
+	field(INPA, "$(device):DM104 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(PREC, "2")
+	field(EGU,  "s")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+#-- Filter -----------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM105")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "5")
+	field(MALM, "230")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+
+	field(FLNK, "$(device):LCV1931:F")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):LCV1931:F")
+{
+	field(DESC, "LCV1931 Filter")
+
+	field(CALC, "A")
+	field(INPA, "$(device):DM105 MS")
+
+	field(HIHI, "9999")
+	field(HHSV, "MAJOR")
+	field(LOLO, "1")
+	field(LLSV, "MAJOR")
+
+	field(EGU,  "")
+	field(MDEL, "0")
+	field(ADEL, "0")
+}
+
+### PT100s #########################################################################################
+
+record(subArray, "$(device):DM131")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "31")
+	field(MALM, "230")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+
+	field(FLNK, "$(device):TT1940")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):TT1940")
+{
+	field(DESC, "Vent temp")
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):DM131 MS")
+	field(ASLO, "0.1")
+	field(PREC, "1")
+	field(EGU,  "C")
+	field(HOPR, "50")
+	field(LOPR, "-200")
+	field(SMOO, "0.0")
+	field(MDEL, "0.1")
+	field(ADEL, "1.0")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM132")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "32")
+	field(MALM, "230")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+
+	field(FLNK, "$(device):TT1945")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):TT1945")
+{
+	field(DESC, "Outgoing temp")
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):DM132 MS")
+	field(ASLO, "0.1")
+	field(PREC, "1")
+	field(EGU,  "C")
+	field(HOPR, "50")
+	field(LOPR, "-200")
+	field(SMOO, "0.0")
+	field(MDEL, "0.1")
+	field(ADEL, "1.0")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(subArray, "$(device):DM133")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "33")
+	field(MALM, "230")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+
+	field(FLNK, "$(device):TT1935")
+}
+
+#% archiver 1 Monitor
+
+record(ai, "$(device):TT1935")
+{
+	field(DESC, "Incoming temp")
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):DM133 MS")
+	field(ASLO, "0.1")
+	field(PREC, "1")
+	field(EGU,  "C")
+	field(HOPR, "50")
+	field(LOPR, "-200")
+	field(SMOO, "0.0")
+	field(MDEL, "0.1")
+	field(ADEL, "1.0")
+}
+
+### PT1934 #########################################################################################
+
+record(subArray, "$(device):DM134")
+{
+	field(INP,  "$(device):DMREAD100 CP MS")
+	field(INDX, "34")
+	field(MALM, "230")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+
+	field(FLNK, "$(device):PT1934")
+}
+
+#% archiver 1 Monitor
+
+record(calcout, "$(device):PT1934")
+{
+	field(DESC, "Incoming pressure")
+	field(INPA, "$(device):DM134 MS")
+	field(CALC, "A/4095*6")
+	field(PREC, "2")
+	field(EGU,  "Bar")
+	field(HOPR, "6")
+	field(LOPR, "0")
+	field(MDEL, "0.01")
+	field(ADEL, "0.1")
+}
+
+### Control PIDs ###################################################################################
+
+record(bo, "$(device):PPID")
+{
+	field(DESC, "Control Pressure PID")
+#	field(DTYP, "asynInt32")
+#	field(OUT,  "@asyn($(port), 0, 5.0) FINS_DM_WRITE")
+	field(ZNAM, "Manual")
+	field(ONAM, "Auto")
+}
+
+record(bi, "$(device):PPID:R")
+{
+	field(DESC, "Control Pressure PID")
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 0, 5.0) FINS_DM_READ")
+	field(ZNAM, "Manual")
+	field(ONAM, "Auto")
+
+	field(VAL,  "1")
+}
+
+record(bo, "$(device):LPID")
+{
+	field(DESC, "Control Level PID")
+#	field(DTYP, "asynInt32")
+#	field(OUT,  "@asyn($(port), 0, 5.0) FINS_DM_WRITE")
+	field(ZNAM, "Manual")
+	field(ONAM, "Auto")
+}
+
+record(bi, "$(device):LPID:R")
+{
+	field(DESC, "Control Level PID")
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 0, 5.0) FINS_DM_READ")
+	field(ZNAM, "Manual")
+	field(ONAM, "Auto")
+
+	field(VAL,  "1")
+}
+
+####################################################################################################
+
+
+# address 0x00 is the CPU
+
+record(waveform, "$(device):MODEL:CPU")
+{
+	field(DTYP, "asynOctetRead")
+	field(INP,  "@asyn($(port), 0x00, 5.0) FINS_MODEL")
+	field(NELM, "20")
+	field(FTVL, "CHAR")
+	field(PINI, "YES")
+}
+
+# address 0x10 is the first CPU bus unit
+
+record(waveform, "$(device):MODEL:ETN")
+{
+	field(DTYP, "asynOctetRead")
+	field(INP,  "@asyn($(port), 0x10, 5.0) FINS_MODEL")
+	field(NELM, "20")
+	field(FTVL, "CHAR")
+	field(PINI, "YES")
+}
+
+record(ai, "$(device):CPU:MODE")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 0, 5.0) FINS_CPU_MODE")
+	field(SCAN, "2 second")
+
+	field(FLNK, "$(device):MODE")
+}
+
+# 00 Program, 02 Monitor, 04 Run
+
+#% archiver 1 Monitor
+
+record(mbbi, "$(device):MODE")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(ZRVL, "0")
+	field(TWVL, "2")
+	field(FRVL, "4")
+	field(ZRST, "Program")
+	field(ZRSV, "MAJOR")
+	field(TWST, "Monitor")
+	field(TWSV, "NO_ALARM")
+	field(FRST, "Run")
+	field(FRSV, "MINOR")
+	field(NOBT, "3")
+	field(INP,  "$(device):CPU:MODE MS")
+}
+
+####################################################################################################
+
+# cycle times - disable in program mode
+
+record(ai, "$(device):CYCLE:MEAN")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 0, 5.0) FINS_CYCLE_TIME_MEAN")
+	field(ASLO, "0.1")
+	field(PREC, "1")
+	field(EGU,  "ms")
+	field(HOPR, "5")
+	field(LOPR, "0")
+	field(DESC, "CPU mean cycle time")
+	field(SCAN, "10 second")
+
+	field(FLNK, "$(device):CYCLE:MAX")
+}
+
+record(ai, "$(device):CYCLE:MAX")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 0, 5.0) FINS_CYCLE_TIME_MAX")
+	field(ASLO, "0.1")
+	field(PREC, "1")
+	field(EGU,  "ms")
+	field(HOPR, "5")
+	field(LOPR, "0")
+	field(DESC, "CPU max cycle time")
+
+	field(FLNK, "$(device):CYCLE:MIN")
+}
+
+record(ai, "$(device):CYCLE:MIN")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 0, 5.0) FINS_CYCLE_TIME_MIN")
+	field(ASLO, "0.1")
+	field(PREC, "1")
+	field(EGU,  "ms")
+	field(HOPR, "5")
+	field(LOPR, "0")
+	field(DESC, "CPU min cycle time")
+}
+
+record(waveform, "$(device):CYCLE:RESET")
+{
+	field(DTYP, "asynOctetWrite")
+	field(INP,  "@asyn($(port), 0, 5.0) FINS_CYCLE_TIME_RESET")
+	field(NELM, "2")
+	field(FTVL, "UCHAR")
+}
+
+################################################################################
+
+record(ai, "$(device):AR336")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 336, 5.0) FINS_AR_READ")
+	field(PINI, "YES")
+}
+
+#record(ai, "$(device):AR510")
+#{
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 510, 5.0) FINS_AR_READ")
+#	field(PINI, "YES")
+#}
+
+#record(ai, "$(device):AR511")
+#{
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 511, 5.0) FINS_AR_READ")
+#	field(PINI, "YES")
+#}
+
+record(ai, "$(device):AR514")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 514, 5.0) FINS_AR_READ")
+	field(PINI, "YES")
+	field(SCAN, "10 second")
+}
+
+record(ai, "$(device):AR523")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 523, 5.0) FINS_AR_READ")
+	field(PINI, "YES")
+	field(SCAN, "10 second")
+}
+
+################################################################################
+
+record(calcout, "$(device):UNITS")
+{
+	field(INPA, "$(device):AR336 MS CP")
+	field(DESC, "I/O Units")
+	field(EGU,  "")
+	field(HOPR, "10")
+	field(LOPR, "0")
+	field(LOLO, "0")
+	field(LLSV, "MAJOR")
+	field(CALC, "A&15")
+}
+
+record(longin, "$(device):POWERINTS")
+{
+	field(INP,  "$(device):AR514 CP MS")
+	field(DESC, "Power Cycles")
+	field(HOPR, "500")
+	field(LOPR, "0")
+}
+
+record(ai, "$(device):POWERON")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):AR523 CP MS")
+	field(DESC, "Power On Time")
+	field(EGU,  "hours")
+	field(HOPR, "10000")
+	field(LOPR, "0")
+	field(ASLO, "10")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(waveform, "$(device):CLOCK")
+{
+	field(DTYP, "asynInt16ArrayIn")
+	field(INP,  "@asyn($(port), 0, 5.0) FINS_CLOCK_READ")
+	field(NELM, "7")
+	field(FTVL, "SHORT")
+	field(SCAN, "5 second")
+}
+
+record(subArray, "$(device):CLOCK:YEAR")
+{
+	field(INP,  "$(device):CLOCK CP MS")
+	field(INDX, "0")
+	field(MALM, "7")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+}
+
+record(subArray, "$(device):CLOCK:MON")
+{
+	field(INP,  "$(device):CLOCK CP MS")
+	field(INDX, "1")
+	field(MALM, "7")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+}
+
+record(subArray, "$(device):CLOCK:DAY")
+{
+	field(INP,  "$(device):CLOCK CP MS")
+	field(INDX, "2")
+	field(MALM, "7")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+}
+
+record(subArray, "$(device):CLOCK:HOUR")
+{
+	field(INP,  "$(device):CLOCK CP MS")
+	field(INDX, "3")
+	field(MALM, "7")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+}
+
+record(subArray, "$(device):CLOCK:MIN")
+{
+	field(INP,  "$(device):CLOCK CP MS")
+	field(INDX, "4")
+	field(MALM, "7")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+}
+
+record(subArray, "$(device):CLOCK:SEC")
+{
+	field(INP,  "$(device):CLOCK CP MS")
+	field(INDX, "5")
+	field(MALM, "7")
+	field(FTVL, "SHORT")
+	field(NELM, "1")
+}
+
+################################################################################

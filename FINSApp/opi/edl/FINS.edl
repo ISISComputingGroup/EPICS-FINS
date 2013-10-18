@@ -1,0 +1,606 @@
+4 0 1
+beginScreenProperties
+major 4
+minor 0
+release 1
+x 464
+y 568
+w 500
+h 190
+font "arial-medium-r-18.0"
+ctlFont "arial-medium-r-18.0"
+btnFont "arial-medium-r-18.0"
+fgColor index 14
+bgColor index 3
+textColor index 14
+ctlFgColor1 index 14
+ctlFgColor2 index 0
+ctlBgColor1 index 0
+ctlBgColor2 index 14
+topShadowColor index 1
+botShadowColor index 11
+title "FINS"
+showGrid
+snapToGrid
+disableScroll
+endScreenProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 0
+y 0
+w 500
+h 30
+font "device-medium-r-18.0"
+fontAlign "center"
+fgColor index 14
+bgColor index 56
+value {
+  "$(device)"
+}
+border
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 90
+y 40
+w 110
+h 20
+controlPv "$(device):MODEL:CPU"
+font "courier-medium-r-14.0"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 90
+y 70
+w 110
+h 20
+controlPv "$(device):MODEL:ETN"
+font "courier-medium-r-14.0"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 90
+y 100
+w 110
+h 20
+controlPv "$(device):MODE"
+font "courier-medium-r-14.0"
+fontAlign "center"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 440
+y 40
+w 50
+h 20
+controlPv "$(device):CYCLE:MEAN"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 440
+y 70
+w 50
+h 20
+controlPv "$(device):CYCLE:MAX"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 440
+y 100
+w 50
+h 20
+controlPv "$(device):CYCLE:MIN"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 290
+y 40
+w 50
+h 20
+controlPv "$(device):UNITS"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 290
+y 70
+w 50
+h 20
+controlPv "$(device):POWERINTS"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 290
+y 100
+w 50
+h 20
+controlPv "$(device):POWERON"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+useHexPrefix
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 210
+y 40
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "I/O Units"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 210
+y 70
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Power Trips"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 210
+y 100
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Power On"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 360
+y 40
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Cycle Mean"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 360
+y 70
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Cycle Max"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 360
+y 100
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Cycle Min"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 40
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "CPU Model"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 70
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Eth Model"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 100
+w 70
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Mode"
+}
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 90
+y 130
+w 30
+h 20
+controlPv "$(device):CLOCK:YEAR"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 130
+y 130
+w 30
+h 20
+controlPv "$(device):CLOCK:MON"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 170
+y 130
+w 30
+h 20
+controlPv "$(device):CLOCK:DAY"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 90
+y 160
+w 30
+h 20
+controlPv "$(device):CLOCK:HOUR"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 130
+y 160
+w 30
+h 20
+controlPv "$(device):CLOCK:MIN"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Text Monitor)
+object activeXTextDspClass:noedit
+beginObjectProperties
+major 4
+minor 4
+release 0
+x 170
+y 160
+w 30
+h 20
+controlPv "$(device):CLOCK:SEC"
+format "hex"
+font "courier-medium-r-12.0"
+fontAlign "right"
+fgColor index 16
+bgColor index 11
+limitsFromDb
+nullColor index 0
+newPos
+objType "monitors"
+endObjectProperties
+
+# (Lines)
+object activeLineClass
+beginObjectProperties
+major 4
+minor 0
+release 1
+x 470
+y 60
+w 0
+h 0
+lineColor index 10
+fillColor index 0
+lineWidth 2
+numPoints 1
+xPoints {
+  0 470
+}
+yPoints {
+  0 60
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 130
+w 50
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Date"
+}
+endObjectProperties
+
+# (Static Text)
+object activeXTextClass
+beginObjectProperties
+major 4
+minor 1
+release 0
+x 10
+y 160
+w 50
+h 20
+font "arial-medium-r-12.0"
+fgColor index 14
+bgColor index 0
+useDisplayBg
+value {
+  "Time"
+}
+endObjectProperties
+

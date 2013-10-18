@@ -1,0 +1,416 @@
+# FINS default template
+#
+# This template provides some basic CPU information
+#
+# macros:
+# device	record device name
+# etn		PLC Ethernet module address, default 0x10
+# port	asyn port name
+
+#---------------------------------------------------------------------------------------------------
+
+# address 0x00 is the CPU
+
+record(waveform, "$(device):MODEL:CPU")
+{
+	field(DTYP, "asynOctetRead")
+	field(INP,  "@asyn($(port), 0x00, 0) FINS_MODEL")
+	field(NELM, "20")
+	field(FTVL, "CHAR")
+	field(PINI, "YES")
+}
+
+# address 0x10 is the first CPU bus unit
+# address 0x11 is the second CPU bus unit
+
+record(waveform, "$(device):MODEL:ETN")
+{
+	field(DTYP, "asynOctetRead")
+	field(INP,  "@asyn($(port), $(etn=0x10), 0) FINS_MODEL")
+	field(NELM, "20")
+	field(FTVL, "CHAR")
+	field(PINI, "YES")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(ai, "$(device):CPU:MODE")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 0, 0) FINS_CPU_MODE")
+	field(SCAN, "2 second")
+
+	field(FLNK, "$(device):MODE")
+}
+
+# 00 Program, 02 Monitor, 04 Run
+
+record(mbbi, "$(device):MODE")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(ZRVL, "0")
+	field(TWVL, "2")
+	field(FRVL, "4")
+	field(ZRST, "Program")
+	field(ZRSV, "MAJOR")
+	field(TWST, "Monitor")
+	field(TWSV, "NO_ALARM")
+	field(FRST, "Run")
+	field(FRSV, "MINOR")
+	field(NOBT, "3")
+	field(INP,  "$(device):CPU:MODE MS")
+}
+
+record(ai, "$(device):CPU:STATUS")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 0, 0) FINS_CPU_STATUS")
+	field(SCAN, "10 second")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+# cycle times
+
+record(waveform, "$(device):CYCLE")
+{
+	field(DTYP, "asynInt32ArrayIn")
+	field(INP,  "@asyn($(port), 0, 0) FINS_CYCLE_TIME")
+	field(SCAN, "10 second")
+	field(FTVL, "ULONG")
+	field(NELM, "3")
+}
+
+
+record(subArray, "$(device):CYCLE:SUB0")
+{
+	field(INP,  "$(device):CYCLE MS CP")
+	field(INDX, "0")
+	field(MALM, "3")
+	field(NELM, "1")
+	field(FTVL, "ULONG")
+
+	field(FLNK, "$(device):CYCLE:MEAN")
+}
+
+record(ai, "$(device):CYCLE:MEAN")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):CYCLE:SUB0 MS")
+	field(ASLO, "0.1")
+	field(HOPR, "5")
+	field(LOPR, "0")
+	field(EGU,  "ms")
+	field(PREC, "1")
+}
+
+
+record(subArray, "$(device):CYCLE:SUB1")
+{
+	field(INP,  "$(device):CYCLE MS CP")
+	field(INDX, "1")
+	field(MALM, "3")
+	field(NELM, "1")
+	field(FTVL, "ULONG")
+
+	field(FLNK, "$(device):CYCLE:MAX")
+}
+
+record(ai, "$(device):CYCLE:MAX")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):CYCLE:SUB1 MS")
+	field(ASLO, "0.1")
+	field(HOPR, "5")
+	field(LOPR, "0")
+	field(EGU,  "ms")
+	field(PREC, "1")
+}
+
+
+record(subArray, "$(device):CYCLE:SUB2")
+{
+	field(INP,  "$(device):CYCLE MS CP")
+	field(INDX, "2")
+	field(MALM, "3")
+	field(NELM, "1")
+	field(FTVL, "ULONG")
+
+	field(FLNK, "$(device):CYCLE:MIN")
+}
+
+record(ai, "$(device):CYCLE:MIN")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):CYCLE:SUB2 MS")
+	field(ASLO, "0.1")
+	field(HOPR, "5")
+	field(LOPR, "0")
+	field(EGU,  "ms")
+	field(PREC, "1")
+}
+
+#record(ai, "$(device):CYCLE:MEAN")
+#{
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 0, 0) FINS_CYCLE_TIME_MEAN")
+#	field(ASLO, "0.1")
+#	field(PREC, "1")
+#	field(EGU,  "ms")
+#	field(HOPR, "5")
+#	field(LOPR, "0")
+#	field(DESC, "CPU mean cycle time")
+#	field(SCAN, "10 second")
+
+#	field(FLNK, "$(device):CYCLE:MAX")
+#}
+
+#record(ai, "$(device):CYCLE:MAX")
+#{
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 0, 0) FINS_CYCLE_TIME_MAX")
+#	field(ASLO, "0.1")
+#	field(PREC, "1")
+#	field(EGU,  "ms")
+#	field(HOPR, "5")
+#	field(LOPR, "0")
+#	field(DESC, "CPU max cycle time")
+
+#	field(FLNK, "$(device):CYCLE:MIN")
+#}
+
+#record(ai, "$(device):CYCLE:MIN")
+#{
+#	field(DTYP, "asynInt32")
+#	field(INP,  "@asyn($(port), 0, 0) FINS_CYCLE_TIME_MIN")
+#	field(ASLO, "0.1")
+#	field(PREC, "1")
+#	field(EGU,  "ms")
+#	field(HOPR, "5")
+#	field(LOPR, "0")
+#	field(DESC, "CPU min cycle time")
+#}
+
+record(waveform, "$(device):CYCLE:RESET")
+{
+	field(DTYP, "asynOctetWrite")
+	field(INP,  "@asyn($(port), 0, 0) FINS_CYCLE_TIME_RESET")
+	field(NELM, "2")
+	field(FTVL, "UCHAR")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(ai, "$(device):AR336")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 336, 0) FINS_AR_READ")
+	field(PINI, "YES")
+}
+
+record(ai, "$(device):AR514")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 514, 0) FINS_AR_READ")
+	field(PINI, "YES")
+	field(SCAN, "10 second")
+}
+
+record(ai, "$(device):AR523")
+{
+	field(DTYP, "asynInt32")
+	field(INP,  "@asyn($(port), 523, 0) FINS_AR_READ")
+	field(PINI, "YES")
+	field(SCAN, "10 second")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(calc, "$(device):UNITS")
+{
+	field(INPA, "$(device):AR336 MS CP")
+	field(DESC, "I/O Units")
+	field(HOPR, "10")
+	field(LOPR, "0")
+	field(CALC, "A&15")
+}
+
+record(longin, "$(device):POWERINTS")
+{
+	field(INP,  "$(device):AR514 MS CP")
+	field(DESC, "Power Cycles")
+	field(HOPR, "1000")
+	field(LOPR, "0")
+}
+
+record(ai, "$(device):POWERON")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(INP,  "$(device):AR523 MS CP")
+	field(DESC, "Power On Time")
+	field(EGU,  "hours")
+	field(HOPR, "10000")
+	field(LOPR, "0")
+	field(ASLO, "10")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(waveform, "$(device):CLOCK")
+{
+	field(DTYP, "asynInt16ArrayIn")
+	field(INP,  "@asyn($(port), 0, 0) FINS_CLOCK_READ")
+	field(NELM, "7")
+	field(FTVL, "SHORT")
+	field(SCAN, "10 second")
+}
+
+record(subArray, "$(device):CLOCK:YEAR")
+{
+	field(INP,  "$(device):CLOCK MS CP")
+	field(INDX, "0")
+	field(MALM, "7")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+}
+
+record(subArray, "$(device):CLOCK:MON")
+{
+	field(INP,  "$(device):CLOCK MS CP")
+	field(INDX, "1")
+	field(MALM, "7")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+}
+
+record(subArray, "$(device):CLOCK:DAY")
+{
+	field(INP,  "$(device):CLOCK MS CP")
+	field(INDX, "2")
+	field(MALM, "7")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+}
+
+record(subArray, "$(device):CLOCK:HOUR")
+{
+	field(INP,  "$(device):CLOCK MS CP")
+	field(INDX, "3")
+	field(MALM, "7")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+}
+
+record(subArray, "$(device):CLOCK:MIN")
+{
+	field(INP,  "$(device):CLOCK MS CP")
+	field(INDX, "4")
+	field(MALM, "7")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+}
+
+record(subArray, "$(device):CLOCK:SEC")
+{
+	field(INP,  "$(device):CLOCK MS CP")
+	field(INDX, "5")
+	field(MALM, "7")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(waveform, "$(device):DMREAD00")
+{
+	field(DTYP, "asynInt16ArrayIn")
+	field(INP,  "@asyn($(port), 0x00, 5) FINS_DM_READ")
+	field(NELM, "3")
+	field(FTVL, "SHORT")
+	field(PINI, "YES")
+	
+	field(FLNK, "$(device):SERIALID")
+}
+
+#---------------------------------------------------------------------------------------------------
+
+record(subArray, "$(device):SERIALID")
+{
+	field(DESC, "DLS Serial number")
+	field(INP,  "$(device):DMREAD00 MS")
+	field(INDX, "0")
+	field(MALM, "3")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+	
+	field(FLNK, "$(device):SOFTWARE")
+}
+
+record(subArray, "$(device):SOFTWARE")
+{
+	field(DESC, "Software version")
+	field(INP,  "$(device):DMREAD00 MS")
+	field(INDX, "1")
+	field(MALM, "3")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+	
+	field(FLNK, "$(device):SOFTMOD")
+}
+
+record(calc, "$(device):SOFTMOD")
+{
+	field(INPA, "$(device):SOFTWARE MS")
+	field(CALC, "FLOOR(A * 0.001)")
+	
+	field(FLNK, "$(device):REVISION")
+}
+
+record(subArray, "$(device):REVISION")
+{
+	field(DESC, "Software revision")
+	field(INP,  "$(device):DMREAD00 MS")
+	field(INDX, "2")
+	field(MALM, "3")
+	field(NELM, "1")
+	field(FTVL, "SHORT")
+	
+	field(FLNK, "$(device):PLCTYPE")
+}
+
+record(mbbi, "$(device):PLCTYPE")
+{
+	field(DTYP, "Raw Soft Channel")
+	field(NOBT, "4")
+	field(INP,  "$(device):SOFTMOD MS")
+	field(ZRVL, "0")
+	field(ONVL, "1")
+	field(TWVL, "2")
+	field(THVL, "3")
+	field(FRVL, "4")
+	field(FVVL, "5")
+	field(SXVL, "6")
+	field(SVVL, "7")
+	field(EIVL, "8")
+	field(ZRST, "Invalid")
+	field(ONST, "Linac")
+	field(TWST, "Machine Protect")
+	field(THST, "Gas Brem")
+	field(FRST, "Vac Four Valve")
+	field(FVST, "Undefined")
+	field(SXST, "Vac Six Valve")
+	field(SVST, "Vacuum Cart")
+	field(EIST, "Temperature")
+	field(ZRSV, "MINOR")
+	field(ONSV, "NO_ALARM")
+	field(TWSV, "NO_ALARM")
+	field(THSV, "NO_ALARM")
+	field(FRSV, "NO_ALARM")
+	field(FVSV, "MINOR")
+	field(SXSV, "NO_ALARM")
+	field(SVST, "NO_ALARM")
+	field(EIST, "NO_ALARM")
+	field(UNSV, "MINOR")
+}
+
+#---------------------------------------------------------------------------------------------------

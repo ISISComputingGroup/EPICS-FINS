@@ -1,0 +1,70 @@
+#!$(INSTALL)/bin/$(ARCH)/CS-RF-IOC-01
+
+cd "$(INSTALL)"
+
+$(VXWORKS_ONLY)ld < bin/$(ARCH)/CS-RF-IOC-01.munch
+
+################################################################################
+
+## Register all support components
+dbLoadDatabase("dbd/CS-RF-IOC-01.dbd")
+CS_RF_IOC_01_registerRecordDeviceDriver(pdbbase)
+
+################################################################################
+
+finsUDPInit("LN2", "172.23.231.192")
+
+# ASYN_TRACE_ERROR     0x0001
+# ASYN_TRACEIO_DEVICE  0x0002
+# ASYN_TRACEIO_FILTER  0x0004
+# ASYN_TRACEIO_DRIVER  0x0008
+# ASYN_TRACE_FLOW      0x0010
+
+# ASYN_TRACEIO_NODATA  0x0000
+# ASYN_TRACEIO_ASCII   0x0001
+# ASYN_TRACEIO_ESCAPE  0x0002
+# ASYN_TRACEIO_HEX     0x0004
+
+#asynSetTraceMask  ("LN2", 100, 0x01)
+#asynSetTraceIOMask("LN2", 100, 0x01)
+
+#asynSetTraceMask  ("LN2", 101, 0x01)
+#asynSetTraceIOMask("LN2", 101, 0x01)
+
+#asynSetTraceMask  ("LN2", 102, 0x01)
+#asynSetTraceIOMask("LN2", 102, 0x01)
+
+#asynSetTraceMask  ("LN2", 103, 0x01)
+#asynSetTraceIOMask("LN2", 103, 0x01)
+
+#asynSetTraceMask  ("LN2", 110, 0x01)
+#asynSetTraceIOMask("LN2", 110, 0x01)
+
+#asynSetTraceMask  ("LN2", 120, 0x01)
+#asynSetTraceIOMask("LN2", 120, 0x01)
+
+#asynSetTraceMask  ("LN2", 121, 0x01)
+#asynSetTraceIOMask("LN2", 121, 0x01)
+
+#asynSetTraceMask  ("LN2", 122, 0x01)
+#asynSetTraceIOMask("LN2", 122, 0x01)
+
+#asynSetTraceMask  ("LN2", 123, 0x01)
+#asynSetTraceIOMask("LN2", 123, 0x01)
+
+#asynSetTraceMask  ("LN2", 336, 0x01)
+#asynSetTraceIOMask("LN2", 336, 0x01)
+
+#asynSetTraceMask  ("LN2", 514, 0x01)
+#asynSetTraceIOMask("LN2", 514, 0x01)
+
+#asynSetTraceMask  ("LN2", 523, 0x01)
+#asynSetTraceIOMask("LN2", 523, 0x01)
+
+################################################################################
+
+dbLoadRecords("db/CS-RF-IOC-01.db","")
+
+################################################################################
+
+iocInit()

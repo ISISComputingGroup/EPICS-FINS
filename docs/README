@@ -1,0 +1,88 @@
+Factory Intelligent Network Service (FINS)
+==========================================
+
+Interfaces
+----------
+
+asynOctet
+r	FINS_MODEL		20 character string of module model number
+w	FINS_CYCLE_TIME_RESET	Reset PLC cycle time calculations
+		
+Int32
+r	FINS_DM_READ		16 bit Data Memory read
+r	FINS_AR_READ		16 bit Auxiliary Memory read
+r	FINS_IO_READ		16 bit I/O Area read
+r	FINS_DM_READ_32		32 bit Data Memory read
+r	FINS_AR_READ_32		32 bit Auxillary Memory read
+r	FINS_IO_READ_32		32 bit I/O Area read
+r	FINS_CYCLE_TIME_MEAN	PLC mean cycle time (ms)
+r	FINS_CYCLE_TIME_MAX	PLC max cycle time (ms)
+r	FINS_CYCLE_TIME_MIN	PLC min cycle time (ms)
+r	FINS_CPU_STATUS
+r	FINS_CPU_MODE		PLC mode (STOP, PROGRAM, MONITOR)
+w	FINS_DM_WRITE		16 bit Data Memory write
+w	FINS_DM_WRITE_NOREAD	As above without a read
+w	FINS_AR_WRITE		16 bit Auxillary Memory write
+w	FINS_AR_WRITE_NOREAD	As above without a read
+w	FINS_IO_WRITE		16 bit I/O Area write
+w	FINS_IO_WRITE_NOREAD	As above without a read
+w	FINS_CYCLE_TIME_RESET	Reset PLC cycle time calculations
+w	FINS_DM_WRITE_32	32 bit Data Memory write
+w	FINS_DM_WRITE_32_NOREAD	As above without a read
+w	FINS_AR_WRITE_32	32 bit Auxillary Memory write
+w	FINS_AR_WRITE_32_NOREAD	As above without a read
+w	FINS_IO_WRITE_32	32 bit I/O Area write
+w	FINS_IO_WRITE_32_NOREAD	As above without a read
+		
+Int16Array
+r	FINS_DM_READ		16 bit array Data Memory read
+r	FINS_AR_READ		16 bit array Auxillary Memory read
+r	FINS_IO_READ		16 bit array I/O Area read
+r	FINS_CLOCK_READ		PLC clock/date read (7 * SHORT)
+w	FINS_DM_WRITE		16 bit array Data Memory write	
+w	FINS_AR_WRITE		16 bit array Auxillary Memory write
+w	FINS_IO_WRITE		16 bit array I/O Area write
+	
+Int32Array
+r	FINS_DM_READ_32		32 bit array Data Memory read
+r	FINS_AR_READ_32		32 bit array Auxillary Memory read
+r	FINS_IO_READ_32		32 bit array I/O Area read
+r	FINS_CYCLE_TIME		PLC cycle time read (3 * LONG)
+w	FINS_DM_WRITE_32	32 bit array Data Memory write
+w	FINS_AR_WRITE_32	32 bit array Auxillary Memory write
+w	FINS_IO_WRITE_32	32 bit array I/O Area write
+		
+Float32Array
+r	FINS_DM_READ_32		32 bit float Data Memory read
+r	FINS_AR_READ_32		32 bit float Auxillary Memory read
+r	FINS_IO_READ_32		32 bit float I/O Area read
+w	FINS_DM_WRITE_32	32 bit float Data Memory write
+w	FINS_AR_WRITE_32	32 bit float Auxillary Memory write
+w	FINS_IO_WRITE_32	32 bit float I/O Area write
+
+The _NOREAD versions of the WRITE functions do not perform an initial read from the device
+during record initialisation. Performing the inital read is asyn's method of bumpless restarts.
+
+Initialisation
+--------------
+
+finsUDPInit(portName, <PLC's IP address>)
+
+Usage
+-----
+
+* The EPICS IOC's node address is set to 254.
+
+* Transfers are limited to 500 16-bit words (1000 bytes) maximum.
+
+* PLC's FINS UDP port must be 9600.
+
+* The default timeout, the third parameter of the @asyn() command, is currently one second.
+
+* A funtion finsTest("<ip address>") sends a FINS data memory read request for two words from
+  address 100 to the specified IP address.
+
+Examples
+--------
+
+FINS.template illustrates how to configure records.
