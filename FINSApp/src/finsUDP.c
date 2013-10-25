@@ -207,7 +207,7 @@ typedef struct drvPvt
 
 	int connected;
 	SOCKET fd;
-	int tcp_protocol; // 1 if using tcp(STREAM), 0 if udp(DGRAM)
+	int tcp_protocol; // 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM)
 	
 	const char *portName;
 	asynInterface common;
@@ -560,8 +560,8 @@ static void report(void *pvt, FILE *fp, int details)
 	
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
-	fprintf(fp, "%s: connected %s \n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"));
-	fprintf(fp, "    PLC IP: %s  Node: %d\n", ip, pdrvPvt->node);
+	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
+	fprintf(fp, "    PLC IP: %s  Node: %d Port: %h\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 }
 
