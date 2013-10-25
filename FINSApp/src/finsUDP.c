@@ -201,6 +201,16 @@ static const char* socket_errmsg()
 	return error_message;
 }
 
+typedef struct finsTCPHeader
+{
+	uint32_t header; // always 0x46494E53 ("FINS" in ASCII)
+	uint32_t length; 
+	uint32_t command; 
+	uint32_t error_code; 
+	uint32_t address; // client node address
+	uint32_t extra[3];
+} finsTCPHeader;
+
 typedef struct drvPvt
 {
 	epicsMutexId mutexId;
@@ -283,6 +293,10 @@ asynStatus drvUserGetType(void *drvPvt, asynUser *pasynUser, const char **pptype
 asynStatus drvUserDestroy(void *drvPvt, asynUser *pasynUser);
 
 static asynDrvUser ifaceDrvUser = { drvUserCreate, NULL, NULL };
+
+static int socket_recv(SOCKET fd, char* buffer, int len, int flags);
+
+static void init_fins_header(finsTCPHeader* fins_header);
 
 /**************************************************************************************************/
 
@@ -570,6 +584,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	drvPvt *pdrvPvt = (drvPvt *) pvt;
 	asynStatus status;
 	int addr;
+	finsTCPHeader fins_header;
 	
 	status = pasynManager->getAddr(pasynUser, &addr);
     
@@ -591,8 +606,30 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 
 	if (connect(pdrvPvt->fd, (const struct sockaddr*)&pdrvPvt->addr, sizeof(pdrvPvt->addr)) < 0)
 	{
-		printf("Bad connection to address %s port %h\n", inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port));
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, connect() to %s port %h with %s.\n", 
+				pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
 		return (asynError);
+	}
+	
+	if (pdrvPvt->tcp_protocol)
+	{
+	    init_fins_header(&fins_header);
+		if (send(pdrvPvt->fd, (char*)&fins_header, 20, 0) != 20) // send FINS TCP command
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, send() with %s.\n", pdrvPvt->portName, socket_errmsg());
+			return (asynError);
+		}
+		if (socket_recv(pdrvPvt->fd, (char*)&fins_header, 24, 0) != 24) // receive FINS TCP command
+		{ 
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, recv() with %s.\n", pdrvPvt->portName, socket_errmsg());
+			return (asynError);
+		}
+		if (fins_header.command != 0x1)
+		{ 
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, illegal fins command %d.\n", pdrvPvt->portName, fins_header.command);
+			return (asynError);
+		}
+		printf("Client node %d server node %d\n", fins_header.address, fins_header.extra[0]);	
 	}
 	pdrvPvt->connected = 1;
 	pasynManager->exceptionConnect(pasynUser);
@@ -652,15 +689,9 @@ static asynStatus flushIt(void *pvt, asynUser *pasynUser)
 
 static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 {
-	struct sockaddr from_addr;
 	int bytes;
 	fd_set reply_fds;
 	struct timeval no_wait;
-#ifdef vxWorks
-	int iFromLen = 0;
-#else
-	socklen_t iFromLen = 0;
-#endif		
 	do
 	{			
 // Winsock lacks MSG_DONWAIT so we need to use select() instead, which should work on both Linux and Windows
@@ -670,7 +701,7 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 		no_wait.tv_sec = no_wait.tv_usec = 0;
 		if ( select((int)pdrvPvt->fd + 1, &reply_fds, NULL, NULL, &no_wait) > 0 ) // nfds parameter is ignored on Windows, so cast to avoid warning
 		{
-			bytes = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0, &from_addr, &iFromLen);
+			bytes = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0);
 		}
 		else
 		{
@@ -998,21 +1029,12 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		}
 	}
 
-	{
-		struct sockaddr from_addr;
-#ifdef vxWorks
-		int iFromLen = 0;
-#else
-		socklen_t iFromLen = 0;
-#endif
-		errno = 0;
-		
-		if ((recvlen = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0, &from_addr, &iFromLen)) < 0)
+		errno = 0;		
+		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 			return (-1);
 		}
-	}
 
 	epicsTimeGetCurrent(&ete);
 	
@@ -1568,19 +1590,11 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 		}
 	}
 
-	{
-		struct sockaddr from_addr;
-#ifdef vxWorks
-		int iFromLen = 0;
-#else
-		socklen_t iFromLen = 0;
-#endif
-		if ((recvlen = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0, &from_addr, &iFromLen)) < 0)
+		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() error.\n", FUNCNAME, pdrvPvt->portName);
 			return (-1);
 		}
-	}
 
 	epicsTimeGetCurrent(&ete);
 
@@ -2765,6 +2779,41 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 	}
 
 	return (asynError);
+}
+
+static int socket_recv(SOCKET fd, char* buffer, int len, int flags)
+{
+    int recv_len, total_len = 0;
+    for(;;)
+	{
+	    recv_len = recv(fd, buffer, len, flags);
+		if (recv_len > 0)
+		{
+			total_len += recv_len;
+		    if (recv_len < len)
+			{
+			    len -= recv_len;
+				buffer += recv_len;
+			}
+			else
+			{
+			    break; // all data read 
+			}
+		}
+		else // error
+		{
+		    total_len = recv_len; // recv() error code
+			break;
+		}
+	}
+	return total_len;	
+}
+
+static void init_fins_header(finsTCPHeader* fins_header)
+{
+	memset(fins_header, 0, sizeof(fins_header));
+    fins_header->header = 0x46494E53; // "FINS" in ASCII
+	fins_header->length = 0x0C; 
 }
 
 static const char *error01 = "Local node error";
