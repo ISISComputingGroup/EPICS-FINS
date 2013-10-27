@@ -579,7 +579,7 @@ static void report(void *pvt, FILE *fp, int details)
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
 	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
-	fprintf(fp, "    PLC IP: %s  Node: %d Port: %h\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
+	fprintf(fp, "    PLC IP: %s  Node: %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 }
 
@@ -610,7 +610,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 
 	if (connect(pdrvPvt->fd, (const struct sockaddr*)&pdrvPvt->addr, sizeof(pdrvPvt->addr)) < 0)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, connect() to %s port %h with %s.\n", 
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, connect() to %s port %hu with %s.\n", 
 				pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
 		return (asynError);
 	}
@@ -3272,7 +3272,7 @@ int finsTest(char *address, char* protocol)
 
 	if (connect(fd, (const struct sockaddr*)&addr, sizeof(addr)) < 0)
 	{
-		printf("connect() to %s port %h with %s.\n", address, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
+		printf("connect() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3329,7 +3329,7 @@ int finsTest(char *address, char* protocol)
 
 	if (send(fd, message, sendlen, 0) != sendlen)
 	{
-		printf("send() to %s port %h with %s.\n", address, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
+		printf("send() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3378,7 +3378,7 @@ int finsTest(char *address, char* protocol)
 		    return (-1);
 	    }
 
-		if ((recvlen = socket_recv(fd, message, FINS_MAX_MSG, 0)) < 0)
+		if ((recvlen = socket_recv(fd, (char*)message, FINS_MAX_MSG, 0)) < 0)
 		{
 			printf("finsTest: recv %s.\n", socket_errmsg());
 			epicsSocketDestroy(fd);
