@@ -206,9 +206,8 @@ typedef struct finsTCPHeader
 	uint32_t header; // always 0x46494E53 ("FINS" in ASCII)
 	uint32_t length; 
 	uint32_t command; 
-	uint32_t error_code; 
-	uint32_t address; // client node address
-	uint32_t extra[3];
+	uint32_t error_code;
+	uint32_t extra[2];
 } finsTCPHeader;
 
 typedef struct drvPvt
@@ -294,9 +293,14 @@ asynStatus drvUserDestroy(void *drvPvt, asynUser *pasynUser);
 
 static asynDrvUser ifaceDrvUser = { drvUserCreate, NULL, NULL };
 
-static int socket_recv(SOCKET fd, char* buffer, int len, int flags);
+static int socket_recv(SOCKET fd, char* buffer, int maxlen, int wait_for_all);
+
 
 static void init_fins_header(finsTCPHeader* fins_header);
+static void	byteswap_fins_header(finsTCPHeader* fins_header);
+static int send_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* portName, asynUser* pasynUser, int sendlen, int first_header);
+static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* portName, asynUser* pasynUser, int first_header);
+static const char* finsTCPError(int code);
 
 /**************************************************************************************************/
 
@@ -613,23 +617,15 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	
 	if (pdrvPvt->tcp_protocol)
 	{
-	    init_fins_header(&fins_header);
-		if (send(pdrvPvt->fd, (char*)&fins_header, 20, 0) != 20) // send FINS TCP command
+		if (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 4, 1) < 0)
 		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, send() with %s.\n", pdrvPvt->portName, socket_errmsg());
 			return (asynError);
 		}
-		if (socket_recv(pdrvPvt->fd, (char*)&fins_header, 24, 0) != 24) // receive FINS TCP command
-		{ 
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, recv() with %s.\n", pdrvPvt->portName, socket_errmsg());
+		if (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 1) < 0)
+		{
 			return (asynError);
 		}
-		if (fins_header.command != 0x1)
-		{ 
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, illegal fins command %d.\n", pdrvPvt->portName, fins_header.command);
-			return (asynError);
-		}
-		printf("Client node %d server node %d\n", fins_header.address, fins_header.extra[0]);	
+		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
 	}
 	pdrvPvt->connected = 1;
 	pasynManager->exceptionConnect(pasynUser);
@@ -661,6 +657,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	}
 	if ( pdrvPvt->tcp_protocol )
 	{
+	    // TODO: send a fins shutdown packet
 		shutdown(pdrvPvt->fd, SHUT_RDWR);
 		epicsSocketDestroy(pdrvPvt->fd);
 		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
@@ -736,7 +733,8 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 {
 	static const char *FUNCNAME = "finsSocketRead";
 	int recvlen, sendlen = 0;
-
+	unsigned expectedlen;
+    finsTCPHeader fins_header;
 	epicsTimeStamp ets, ete;
 
 /* initialise header */
@@ -974,6 +972,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 	errno = 0;
 	
+	if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
+	{
+		return (-1);
+	}
+	
 	if (send(pdrvPvt->fd, pdrvPvt->message, sendlen, 0) != sendlen)
 	{
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, send() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
@@ -1030,12 +1033,22 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	}
 
 		errno = 0;		
+		if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
+		{
+		    return (-1);
+		}
 		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 			return (-1);
 		}
-
+		expectedlen = fins_header.length - 8;
+		if ( pdrvPvt->tcp_protocol && (recvlen != expectedlen) )
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
+			return (-1);
+		}
+		
 	epicsTimeGetCurrent(&ete);
 	
 	{
@@ -1056,7 +1069,6 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length too small.\n", FUNCNAME, pdrvPvt->portName);
 		return (-1);
 	}
-	
 	if ((pdrvPvt->message[DNA] != pdrvPvt->reply[SNA]) || (pdrvPvt->message[DA1] != pdrvPvt->reply[SA1]) || (pdrvPvt->message[DA2] != pdrvPvt->reply[SA2]))
 	{
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received.\n", FUNCNAME, pdrvPvt->portName);
@@ -1317,7 +1329,8 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 {
 	static const char *FUNCNAME = "finsSocketWrite";
 	int recvlen, sendlen;
-
+	unsigned expectedlen;
+    finsTCPHeader fins_header;
 	epicsTimeStamp ets, ete;
 	
 /* initialise header */
@@ -1535,6 +1548,10 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 	errno = 0;
 	
+	if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
+	{
+		return (-1);
+	}
 	if (send(pdrvPvt->fd, pdrvPvt->message, sendlen, 0) != sendlen)
 	{
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, send() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
@@ -1590,11 +1607,21 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 		}
 	}
 
+	    if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
+	    {
+		    return (-1);
+	    }
 		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
 		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() error.\n", FUNCNAME, pdrvPvt->portName);
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 			return (-1);
 		}
+		expectedlen = fins_header.length - 8;
+		if ( pdrvPvt->tcp_protocol && (recvlen != expectedlen) )
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
+			return (-1);
+		}		
 
 	epicsTimeGetCurrent(&ete);
 
@@ -2781,18 +2808,38 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 	return (asynError);
 }
 
-static int socket_recv(SOCKET fd, char* buffer, int len, int flags)
+static int socket_recv(SOCKET fd, char* buffer, int maxlen, int wait_for_all)
 {
+	fd_set rfds;
+	struct timeval tv;
     int recv_len, total_len = 0;
     for(;;)
 	{
-	    recv_len = recv(fd, buffer, len, flags);
+		if (wait_for_all)
+		{
+	        recv_len = recv(fd, buffer, maxlen, 0);
+		}
+		else
+		{
+			FD_ZERO(&rfds);
+			FD_SET(fd, &rfds);
+			tv.tv_sec = 0;
+			tv.tv_usec = 10 * 1000;
+			if ( select((int)fd + 1, &rfds, NULL, NULL, &tv) > 0 )
+			{
+	            recv_len = recv(fd, buffer, maxlen, 0);			
+			}
+			else
+			{
+			    recv_len = 0;
+			}
+		}
 		if (recv_len > 0)
 		{
 			total_len += recv_len;
-		    if (recv_len < len)
+		    if (recv_len < maxlen)
 			{
-			    len -= recv_len;
+			    maxlen -= recv_len;
 				buffer += recv_len;
 			}
 			else
@@ -2800,9 +2847,13 @@ static int socket_recv(SOCKET fd, char* buffer, int len, int flags)
 			    break; // all data read 
 			}
 		}
+		else if ( recv_len == 0 )
+		{
+			break; // no more data
+		}
 		else // error
 		{
-		    total_len = recv_len; // recv() error code
+		    total_len = -1; // recv() returned error
 			break;
 		}
 	}
@@ -2813,7 +2864,153 @@ static void init_fins_header(finsTCPHeader* fins_header)
 {
 	memset(fins_header, 0, sizeof(fins_header));
     fins_header->header = 0x46494E53; // "FINS" in ASCII
-	fins_header->length = 0x0C; 
+}
+
+static void byteswap_fins_header(finsTCPHeader* fins_header)
+{
+    int i;
+	uint32_t* head = (uint32_t*)fins_header;
+	for(i = 0; i < sizeof(fins_header) / sizeof(uint32_t); ++i)
+	{
+	    head[i] = BSWAP32(head[i]);
+	}
+}
+
+static int send_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* portName, asynUser* pasynUser, int sendlen, int first_header)
+{
+    int hsend;
+    init_fins_header(fins_header);
+	if (first_header)
+	{
+ 	    fins_header->length = 12;
+	    fins_header->command = 0x00;
+	    hsend = 20;
+	}
+	else
+	{
+ 	    fins_header->length = 8 + sendlen;
+	    fins_header->command = 0x02;
+	    hsend = 16;
+	}
+	byteswap_fins_header(fins_header);
+	if (send(fd, (const char*)fins_header, hsend, 0) != hsend)
+	{
+		if (pasynUser != NULL)
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "send_fins_header: port %s, send() failed with %s.\n", portName, socket_errmsg());
+		}
+		else
+		{
+			printf("send_fins_header: port %s, send() failed with %s.\n", portName, socket_errmsg());
+		}
+		return (-1);
+	}
+	return hsend;
+}
+
+static const char* finsTCPError(int code)
+{
+    switch(code)
+	{
+	    case 0x0:
+		    return "Normal."; // not an error
+			break;
+			
+	    case 0x1:
+		    return "Header is not 'FINS' (ASCII CODE)."; // not an error
+			break;
+
+	    case 0x2:
+		    return "The data length is too long.";
+			break;
+			
+	    case 0x3:
+		    return "The command is not supported.";
+			break;
+		
+	    case 0x20:
+		    return "All connections are in use.";
+			break;
+
+		case 0x21:
+		    return "The specified node is already connected.";
+			break;
+
+		case 0x22:
+		    return "Attempt to access a protected node from an unspecified IP address.";
+			break;
+
+		case 0x23:
+		    return "The client FINS node address is out of range.";
+			break;
+
+		case 0x24:
+		    return "The same FINS node address is being used by the client and the server.";
+			break;
+
+		case 0x25:
+		    return "All the node addresses available for allocation have been used.";
+			break;
+			
+		default:
+		    return "Unknown error code.";
+			break;		
+	}
+}
+static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* portName, asynUser* pasynUser, int first_header)
+{
+    int hrecv, command_ret;
+	if (first_header)
+	{
+ 	    hrecv = 24;
+		command_ret = 0x01;
+	}
+	else
+	{
+	    hrecv = 16;
+		command_ret = 0x02;
+	}
+	if (socket_recv(fd, (char*)fins_header, hrecv, 0) != hrecv)
+	{
+		if (pasynUser != NULL)
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "recv_fins_header: port %s, recv() failed with %s.\n", portName, socket_errmsg());
+		}
+		else
+		{
+			printf("recv_fins_header: port %s, recv() failed with %s.\n", portName, socket_errmsg());
+		}
+		return (-1);
+	}
+	byteswap_fins_header(fins_header);
+	if (fins_header->error_code != 0x0)
+	{
+		if (pasynUser != NULL)
+		{
+			asynPrint(pasynUser, ASYN_TRACE_ERROR, "recv_fins_header: port %s, FINS error: %s\n", 
+					portName, finsTCPError(fins_header->error_code));
+		}
+		else
+		{
+			printf("recv_fins_header: port %s, FINS error: %s\n", portName, finsTCPError(fins_header->error_code));
+		}
+		return (-1);
+	}
+	if (fins_header->command != command_ret)
+	{
+		if (pasynUser != NULL)
+		{
+		    asynPrint(pasynUser, ASYN_TRACE_ERROR, "recv_fins_header: port %s, incorrect command returned %d != %d.\n", 
+					portName, fins_header->command, command_ret);
+		}
+		else
+		{
+		    printf("recv_fins_header: port %s, incorrect command returned %d != %d.\n", 
+					portName, fins_header->command, command_ret);
+		}
+		return (-1);
+	}
+	return hrecv;
 }
 
 static const char *error01 = "Local node error";
@@ -2981,7 +3178,7 @@ epicsExportRegistrar(finsUDPRegister);
 	a helpful error message if something fails.
 */
 
-int finsTest(char *address)
+int finsTest(char *address, char* protocol)
 {
 	SOCKET fd;
 	struct sockaddr_in addr;
@@ -2989,16 +3186,30 @@ int finsTest(char *address)
 	uint8_t node;
 	unsigned char *message;
 	int recvlen, sendlen = 0;
+	unsigned expectedlen;
+	int tcp_protocol = 0;
+	finsTCPHeader fins_header;
+	
+	if (!strcmp(protocol, "TCP"))
+	{
+	    tcp_protocol = 1;
+	}
 	
 	message = (unsigned char *) callocMustSucceed(1, FINS_MAX_MSG, "finsTest");
 	
 /* open a datagram socket */
-
-	fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0);
 	
+	if (tcp_protocol)
+	{
+	    fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+	}
+	else
+	{
+	    fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0);
+	}
 	if (fd < 0)
 	{
-		perror("finsTest: socket");
+		printf("finsTest: socket %s\n", socket_errmsg());
 		return (-1);
 	}
 	
@@ -3010,17 +3221,18 @@ int finsTest(char *address)
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(0);
 
-/* bind socket to address */
-
-	if (bind(fd, (struct sockaddr *) &addr, addrlen) < 0)
+	if (!tcp_protocol)
 	{
-		perror("finsTest: bind failed");
-		
-		epicsSocketDestroy(fd);
-		return (-1);
+/* bind socket to address */
+		if (bind(fd, (struct sockaddr *) &addr, addrlen) < 0)
+		{
+			printf("finsTest: bind %s\n", socket_errmsg());
+			epicsSocketDestroy(fd);
+			return (-1);
+		}
 	}
-
-/* find our port number */
+	
+	/* find our port number */
 	
 	{
 		struct sockaddr_in name;
@@ -3031,7 +3243,7 @@ int finsTest(char *address)
 #endif			
 		getsockname(fd, (struct sockaddr *) &name, &namelen);
 
-		printf("finsTest: port %d bound\n", name.sin_port);
+		printf("finsTest: port %d bound\n", ntohs(name.sin_port));
 	}
 	
 /* destination port address used later in sendto() */
@@ -3058,7 +3270,29 @@ int finsTest(char *address)
 		
 	printf("PLC node %d\n", node);
 
-/* send a simple FINS command */
+	if (connect(fd, (const struct sockaddr*)&addr, sizeof(addr)) < 0)
+	{
+		printf("connect() to %s port %h with %s.\n", address, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
+		epicsSocketDestroy(fd);
+		return (-1);
+	}
+
+	if (tcp_protocol)
+	{
+		if (send_fins_header(&fins_header, fd, "finsTest", NULL, 4, 1) < 0)
+		{
+			epicsSocketDestroy(fd);
+			return (-1);
+		}
+		if (recv_fins_header(&fins_header, fd, "finsTest", NULL, 1) < 0)
+		{
+			epicsSocketDestroy(fd);
+			return (-1);
+		}
+		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
+	}
+
+	/* send a simple FINS command */
 
 	message[ICF] = 0x80;
 	message[RSV] = 0x00;
@@ -3085,11 +3319,17 @@ int finsTest(char *address)
 
 	sendlen = COM + 6;
 
+	if ( tcp_protocol && (send_fins_header(&fins_header, fd, "finsTest", NULL, sendlen, 0) < 0) )
+	{
+		epicsSocketDestroy(fd);
+		return (-1);
+	}
+
 /* send request */
 
-	if (sendto(fd, message, sendlen, 0, (struct sockaddr *) &addr, addrlen) != sendlen)
+	if (send(fd, message, sendlen, 0) != sendlen)
 	{
-		perror("finsTest: sendto");
+		printf("send() to %s port %h with %s.\n", address, inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3112,16 +3352,14 @@ int finsTest(char *address)
 		{
 			case -1:
 			{
-				perror("finsTest: select");
-	
+				printf("finsTest: select %s\n", socket_errmsg());	
 				return (-1);
 				break;
 			}
 			
 			case 0:
 			{
-				perror("finsTest: select");
-
+				printf("finsTest: select timeout\n");
 				return (-1);
 				break;
 			}
@@ -3133,21 +3371,26 @@ int finsTest(char *address)
 		}
 	}
 
-	{
-		struct sockaddr from_addr;
-#ifdef vxWorks
-		int iFromLen = 0;
-#else
-		socklen_t iFromLen = 0;
-#endif
-		if ((recvlen = recvfrom(fd, message, FINS_MAX_MSG, 0, &from_addr, &iFromLen)) < 0)
+
+	    if ( tcp_protocol && (recv_fins_header(&fins_header, fd, "finsTest", NULL, 0) < 0) )
+	    {
+			epicsSocketDestroy(fd);
+		    return (-1);
+	    }
+
+		if ((recvlen = socket_recv(fd, message, FINS_MAX_MSG, 0)) < 0)
 		{
-			perror("finsTest: recvfrom");
+			printf("finsTest: recv %s.\n", socket_errmsg());
 			epicsSocketDestroy(fd);
 			return (-1);
 		}
+	expectedlen = fins_header.length - 8;
+	if ( tcp_protocol && (recvlen != expectedlen) )
+	{
+		printf("finsTest: recvfrom incorrect size %d != %d.\n", recvlen, expectedlen);
+		epicsSocketDestroy(fd);
+		return (-1);
 	}
-
 	{
 		int i;
 		
@@ -3289,13 +3532,14 @@ int finsTest(char *address)
 }
 
 static const iocshArg finsTestArg0 = { "IP address", iocshArgString };
+static const iocshArg finsTestArg1 = { "protocol", iocshArgString };
 
-static const iocshArg *finsTestArgs[] = { &finsTestArg0};
-static const iocshFuncDef finsTestFuncDef = { "finsTest", 1, finsTestArgs};
+static const iocshArg *finsTestArgs[] = { &finsTestArg0, &finsTestArg1 };
+static const iocshFuncDef finsTestFuncDef = { "finsTest", 2, finsTestArgs};
 
 static void finsTestCallFunc(const iocshArgBuf *args)
 {
-	finsTest(args[0].sval);
+	finsTest(args[0].sval, args[1].sval);
 }
 
 static void finsTestRegister(void)
