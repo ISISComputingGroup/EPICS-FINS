@@ -203,7 +203,7 @@ static const char* socket_errmsg()
 
 typedef struct finsTCPHeader
 {
-	uint32_t header; // always 0x46494E53 ("FINS" in ASCII)
+	uint32_t header; /* always 0x46494E53 ("FINS" in ASCII) */
 	uint32_t length; 
 	uint32_t command; 
 	uint32_t error_code;
@@ -216,7 +216,7 @@ typedef struct drvPvt
 
 	int connected;
 	SOCKET fd;
-	int tcp_protocol; // 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM)
+	int tcp_protocol; /* 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
 	
 	const char *portName;
 	asynInterface common;
@@ -333,8 +333,6 @@ enum FINS_COMMANDS
 	FINS_EXPLICIT
 };
 
-//extern int errno;
-
 int finsUDPInit(const char *portName, const char *address, const char* protocol)
 {
 	static const char *FUNCNAME = "finsUDPInit";
@@ -351,7 +349,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		pdrvPvt->tcp_protocol = 1;
 		fins_port = FINS_TCP_PORT;
 	}
-	else // default is UDP
+	else /* default is UDP */
 	{
 		pdrvPvt->tcp_protocol = 0;
 		fins_port = FINS_UDP_PORT;
@@ -510,7 +508,8 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	}
 	if (aToIPAddr(address, fins_port, &pdrvPvt->addr) < 0)
 	{
-		printf("Bad IP address %s\n", address);
+		printf("%s: Bad IP address %s\n", FUNCNAME, address);
+		epicsSocketDestroy(pdrvPvt->fd);
 		return (-1);
 	}
 
@@ -532,9 +531,8 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 		if (bind(pdrvPvt->fd, (struct sockaddr *) &addr, addrlen) < 0)
 		{
-			epicsSocketDestroy(pdrvPvt->fd);
-			
 			printf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
+			epicsSocketDestroy(pdrvPvt->fd);
 			return (-1);
 		}
 	}
@@ -553,7 +551,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 			if (getsockname(pdrvPvt->fd, (struct sockaddr *) &name, &namelen) < 0)
 			{
 				printf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
-				
+				epicsSocketDestroy(pdrvPvt->fd);
 				return (-1);
 			}
 			
@@ -657,7 +655,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	}
 	if ( pdrvPvt->tcp_protocol )
 	{
-	    // TODO: send a fins shutdown packet
+	    /* TODO: send a fins shutdown packet */
 		shutdown(pdrvPvt->fd, SHUT_RDWR);
 		epicsSocketDestroy(pdrvPvt->fd);
 		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
@@ -691,8 +689,9 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 	struct timeval no_wait;
 	do
 	{			
-// Winsock lacks MSG_DONWAIT so we need to use select() instead, which should work on both Linux and Windows
-//		bytes = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, MSG_DONTWAIT, &from_addr, &iFromLen);
+/* Winsock lacks MSG_DONWAIT so we need to use select() instead, which should work on both Linux and Windows
+ *		bytes = recvfrom(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, MSG_DONTWAIT, &from_addr, &iFromLen); 
+ */
 		FD_ZERO(&reply_fds);
 		FD_SET(pdrvPvt->fd, &reply_fds);
 		no_wait.tv_sec = no_wait.tv_usec = 0;
@@ -2970,7 +2969,7 @@ static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 	    hrecv = 16;
 		command_ret = 0x02;
 	}
-	if (socket_recv(fd, (char*)fins_header, hrecv, 0) != hrecv)
+	if (socket_recv(fd, (char*)fins_header, hrecv, 1) != hrecv)
 	{
 		if (pasynUser != NULL)
 		{
@@ -3259,8 +3258,8 @@ int finsTest(char *address, char* protocol)
 
 	if (aToIPAddr(address, FINS_UDP_PORT, &addr) < 0)
 	{
-		epicsSocketDestroy(fd);
 		printf("finsTest: Bad IP address %s\n", address);
+		epicsSocketDestroy(fd);
 		return (-1);
 	}
 
