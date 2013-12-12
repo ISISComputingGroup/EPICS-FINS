@@ -7,7 +7,7 @@ include $(TOP)/configure/CONFIG
 #  Optimization of db files using dbst (DEFAULT: NO)
 #DB_OPT = YES
 
-DB += CS-RF-IOC-01.db
+DB += CS-RF-IOC-01.db isistest.db
 
 USES_TEMPLATE = SR-RF-LN2-02.template
 

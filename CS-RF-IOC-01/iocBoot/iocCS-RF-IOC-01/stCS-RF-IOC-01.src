@@ -1,8 +1,12 @@
 #!$(INSTALL)/bin/$(ARCH)/CS-RF-IOC-01
 
-cd "$(INSTALL)"
+#cd "$(INSTALL)"
 
-$(VXWORKS_ONLY)ld < bin/$(ARCH)/CS-RF-IOC-01.munch
+< envPaths
+
+cd $(TOP)
+
+#$(VXWORKS_ONLY)ld < bin/$(ARCH)/CS-RF-IOC-01.munch
 
 ################################################################################
 
@@ -12,7 +16,8 @@ CS_RF_IOC_01_registerRecordDeviceDriver(pdbbase)
 
 ################################################################################
 
-finsUDPInit("LN2", "172.23.231.192")
+#finsUDPInit("LN2", "172.23.231.192")
+finsUDPInit("LN2", "130.246.55.167", "TCP")
 
 # ASYN_TRACE_ERROR     0x0001
 # ASYN_TRACEIO_DEVICE  0x0002
@@ -63,7 +68,8 @@ finsUDPInit("LN2", "172.23.231.192")
 
 ################################################################################
 
-dbLoadRecords("db/CS-RF-IOC-01.db","")
+#dbLoadRecords("db/CS-RF-IOC-01.db","")
+dbLoadRecords("db/isistest.db","P=$(MYPVPREFIX)")
 
 ################################################################################
 

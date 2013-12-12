@@ -1,0 +1,17 @@
+#!$(INSTALL)/bin/$(ARCH)/CS-RF-IOC-01
+
+#cd "$(INSTALL)"
+
+< envPaths
+
+cd $(TOP)
+
+#$(VXWORKS_ONLY)ld < bin/$(ARCH)/CS-RF-IOC-01.munch
+
+################################################################################
+
+## Register all support components
+dbLoadDatabase("dbd/CS-RF-IOC-01.dbd")
+CS_RF_IOC_01_registerRecordDeviceDriver(pdbbase)
+
+iocInit()

@@ -119,25 +119,25 @@
 
 /* offsets into the FINS UDP packet */
 
-#define ICF	0
-#define RSV	1
-#define GCT	2
-#define DNA	3
-#define DA1	4
-#define DA2	5
-#define SNA	6
-#define SA1	7
-#define SA2	8
-#define SID	9
+/* command format */
+#define ICF	0 /* dipslya frame information */
+#define RSV	1 /* reserved by system */
+#define GCT	2 /* Permissible number fo gateways */
+#define DNA	3 /* Destination network address */
+#define DA1	4 /* destination node address */
+#define DA2	5 /* destination unit address */
+#define SNA	6 /* Source network address */
+#define SA1	7 /* Source node address */
+#define SA2	8 /* Source unit address */
+#define SID	9 /* Service ID */
+#define MRC	10 /* Main request code */
+#define SRC	11 /* Sub request code */
+#define COM	12 /* command  + parameters */
 
-#define MRC	10
-#define SRC	11
-#define COM	12
-
-#define MRES	12
-#define SRES	13
-
-#define RESP	14
+/* response format */
+#define MRES	12 /* mauin response code */
+#define SRES	13 /* sub response code */
+#define RESP	14 /* response data */
 
 #define MIN_RESP_LEN	14
 
@@ -149,8 +149,8 @@
 #define FINS_MAX_MSG		((FINS_MAX_WORDS) * 2 + 100)
 #define FINS_MAX_HEADER		32
 #define FINS_TIMEOUT		1				/* asyn default timeout */
-#define FINS_SOURCE_ADDR	0xFE				/* default node address 254 */
-#define FINS_GATEWAY		0x02
+#define FINS_SOURCE_ADDR	0xFE			/* default node address 254, used for udp - with tcp we can obtain this another way */
+#define FINS_GATEWAY		0x02           /* permissible number of gateways */
 
 #define FINS_MODEL_LENGTH	20
 
@@ -229,8 +229,11 @@ typedef struct drvPvt
 	void *pasynPvt;			/* For registerInterruptSource */
 	
 	uint8_t node;
+	uint8_t client_node;
 
 	epicsUInt8 sid;			/* seesion id - increment for each message */
+	
+	uint8_t na; /* value to use for sna, dna - 0x0 if local, 0x1 if remote */
 	
 	struct sockaddr_in addr;	/* PLC destination address */
 	
@@ -344,7 +347,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	pdrvPvt = callocMustSucceed(1, sizeof(drvPvt), FUNCNAME);
 	pdrvPvt->portName = epicsStrDup(portName);
 	
-	if ( (protocol != NULL) && !strcmp(protocol, "TCP") )
+	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
 	{
 		pdrvPvt->tcp_protocol = 1;
 		fins_port = FINS_TCP_PORT;
@@ -513,6 +516,8 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		return (-1);
 	}
 
+	printf("%s: using address %s protocol %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
+	
 	if ( !(pdrvPvt->tcp_protocol) )
 	{
 	
@@ -535,7 +540,6 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 			epicsSocketDestroy(pdrvPvt->fd);
 			return (-1);
 		}
-	}
 		
 	/* find our port number and inform the user */
 	
@@ -557,12 +561,13 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 			
 			printf("%s: using port %d\n", FUNCNAME, name.sin_port);
 		}
+	}
 		
 
 	/* node address is last byte of IP address */
 		
 	pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
-		
+			
 	printf("%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
 	pdrvPvt->tMin = 100.0;
 	
@@ -623,8 +628,15 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		{
 			return (asynError);
 		}
-		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
+		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);
+		pdrvPvt->client_node = fins_header.extra[0];
 	}
+	else
+	{
+		pdrvPvt->client_node = FINS_SOURCE_ADDR;
+	}
+	pdrvPvt->na = 0x01;
+	
 	pdrvPvt->connected = 1;
 	pasynManager->exceptionConnect(pasynUser);
 	return (asynSuccess);
@@ -742,12 +754,12 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	pdrvPvt->message[RSV] = 0x00;
 	pdrvPvt->message[GCT] = FINS_GATEWAY;
 
-	pdrvPvt->message[DNA] = 0x00;
+	pdrvPvt->message[DNA] = pdrvPvt->na;
 	pdrvPvt->message[DA1] = pdrvPvt->node;
 	pdrvPvt->message[DA2] = 0x00;
 
-	pdrvPvt->message[SNA] = 0x00;
-	pdrvPvt->message[SA1] = FINS_SOURCE_ADDR;
+	pdrvPvt->message[SNA] = pdrvPvt->na;
+	pdrvPvt->message[SA1] = pdrvPvt->client_node;
 	pdrvPvt->message[SA2] = 0x00;
 
 	switch (pasynUser->reason)
@@ -1338,12 +1350,12 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 	pdrvPvt->message[RSV] = 0x00;
 	pdrvPvt->message[GCT] = FINS_GATEWAY;
 
-	pdrvPvt->message[DNA] = 0x00;
+	pdrvPvt->message[DNA] = pdrvPvt->na;
 	pdrvPvt->message[DA1] = pdrvPvt->node;
 	pdrvPvt->message[DA2] = 0x00;
 
-	pdrvPvt->message[SNA] = 0x00;
-	pdrvPvt->message[SA1] = FINS_SOURCE_ADDR;
+	pdrvPvt->message[SNA] = pdrvPvt->na;
+	pdrvPvt->message[SA1] = pdrvPvt->client_node;
 	pdrvPvt->message[SA2] = 0x00;
 	
 	switch (pasynUser->reason)
@@ -2861,7 +2873,7 @@ static int socket_recv(SOCKET fd, char* buffer, int maxlen, int wait_for_all)
 
 static void init_fins_header(finsTCPHeader* fins_header)
 {
-	memset(fins_header, 0, sizeof(fins_header));
+	memset(fins_header, 0, sizeof(finsTCPHeader));
     fins_header->header = 0x46494E53; // "FINS" in ASCII
 }
 
@@ -2869,7 +2881,7 @@ static void byteswap_fins_header(finsTCPHeader* fins_header)
 {
     int i;
 	uint32_t* head = (uint32_t*)fins_header;
-	for(i = 0; i < sizeof(fins_header) / sizeof(uint32_t); ++i)
+	for(i = 0; i < sizeof(finsTCPHeader) / sizeof(uint32_t); ++i)
 	{
 	    head[i] = BSWAP32(head[i]);
 	}
@@ -3182,13 +3194,16 @@ int finsTest(char *address, char* protocol)
 	SOCKET fd;
 	struct sockaddr_in addr;
 	const int addrlen = sizeof(struct sockaddr_in);
-	uint8_t node;
+	uint8_t node, client_node;
 	unsigned char *message;
 	int recvlen, sendlen = 0;
 	unsigned expectedlen;
 	int tcp_protocol = 0;
 	finsTCPHeader fins_header;
-	
+	unsigned char checksum = 0;
+	unsigned char ck[2];
+	int i;
+//	DebugBreak();
 	if (!strcmp(protocol, "TCP"))
 	{
 	    tcp_protocol = 1;
@@ -3289,33 +3304,43 @@ int finsTest(char *address, char* protocol)
 			return (-1);
 		}
 		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
+		client_node = fins_header.extra[0];
+	}
+	else
+	{
+		client_node = FINS_SOURCE_ADDR;
 	}
 
+	
 	/* send a simple FINS command */
 
-	message[ICF] = 0x80;
+	message[ICF] = 0x80; /* command, response required */
 	message[RSV] = 0x00;
-	message[GCT] = 0x02;
+	message[GCT] = FINS_GATEWAY;
 
-	message[DNA] = 0x00;
+	message[DNA] = 0x0;  
 	message[DA1] = node;		/* destination node */
 	message[DA2] = 0x00;
 
-	message[SNA] = 0x00;
-	message[SA1] = 0x01;		/* source node */
+	message[SNA] = 0x0;   
+	message[SA1] = client_node;		/* source node */
 	message[SA2] = 0x00;
 
 	message[MRC] = 0x01;
 	message[SRC] = 0x01;
 	message[COM] = DM;		/* data memory read */
-
+#if 0
 	message[COM+1] = 100 >> 8;
 	message[COM+2] = 100 & 0xff;
 	message[COM+3] = 0x00;		/* start address */
+#else
+	message[COM+1] = (1000 >> 8) & 0xff;
+	message[COM+2] = 1000 & 0xff;
+	message[COM+3] = (1000 >> 16) & 0xff;		/* start address */
+#endif
 
 	message[COM+4] = 2 >> 8;
 	message[COM+5] = 2 & 0xff;	/* length */
-
 	sendlen = COM + 6;
 
 	if ( tcp_protocol && (send_fins_header(&fins_header, fd, "finsTest", NULL, sendlen, 0) < 0) )
@@ -3324,6 +3349,22 @@ int finsTest(char *address, char* protocol)
 		return (-1);
 	}
 
+	for (i=0; i<16; ++i)
+	{
+		checksum ^= ((unsigned char*)&fins_header)[i];
+//		printf("%02x ", ((unsigned char*)&fins_header)[i]);
+	}
+	for (i=0; i<sendlen; ++i)
+	{
+		checksum ^= message[i];
+	}
+	ck[0] = ( (checksum >> 4) & 0x0f ) + '0';
+	ck[1] = ( checksum & 0x0f ) + '0';
+
+//	for(i=0; i<sendlen; ++i)
+//	{
+//		printf("%02x ", message[i]);
+//	}
 /* send request */
 
 	if (send(fd, message, sendlen, 0) != sendlen)
@@ -3332,6 +3373,14 @@ int finsTest(char *address, char* protocol)
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
+
+	// send checksum
+//	if (send(fd, ck, 2, 0) != 2)
+//	{
+//		printf("send() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
+//		epicsSocketDestroy(fd);
+//		return (-1);
+//	}
 
 /* receive reply with timeout */
 
