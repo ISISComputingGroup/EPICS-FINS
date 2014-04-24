@@ -13,9 +13,11 @@
 		Int32
 		r	FINS_DM_READ
 		r	FINS_AR_READ
+		r	FINS_WR_READ
 		r	FINS_IO_READ
 		r	FINS_DM_READ_32
 		r	FINS_AR_READ_32
+		r	FINS_WR_READ_32
 		r	FINS_IO_READ_32
 		r	FINS_CYCLE_TIME_MEAN
 		r	FINS_CYCLE_TIME_MAX
@@ -25,7 +27,9 @@
 		w	FINS_DM_WRITE
 		w	FINS_DM_WRITE_NOREAD
 		w	FINS_AR_WRITE
+		w	FINS_WR_WRITE
 		w	FINS_AR_WRITE_NOREAD
+		w	FINS_WR_WRITE_NOREAD
 		w	FINS_IO_WRITE
 		w	FINS_IO_WRITE_NOREAD
 		w	FINS_CYCLE_TIME_RESET
@@ -33,6 +37,8 @@
 		w	FINS_DM_WRITE_32_NOREAD
 		w	FINS_AR_WRITE_32
 		w	FINS_AR_WRITE_32_NOREAD
+		w	FINS_WR_WRITE_32
+		w	FINS_WR_WRITE_32_NOREAD
 		w	FINS_IO_WRITE_32
 		w	FINS_IO_WRITE_32_NOREAD
 		
@@ -111,16 +117,18 @@
 #include <osiSock.h>
 
 /* PLC memory  types */
-
-#define DM	0x82
-#define IO	0xB0
-#define AR	0xB3
-#define CT	0x89
+/* note: the bit version of these are 0x80 lower, we shift these using "address_shift" if needed */
+#define DM	0x82 /* DM area, word */
+#define IO	0xB0 /* CIO area, word */
+#define WR  0xB1 /* Work area, word */
+#define HR  0xB2 /* Holding area, word */
+#define AR	0xB3 /* Auxiliary area, word */
+#define CT	0x89 /* CNT, counter area, word */
 
 /* offsets into the FINS UDP packet */
 
 /* command format */
-#define ICF	0 /* dipslya frame information */
+#define ICF	0 /* dipslay frame information */
 #define RSV	1 /* reserved by system */
 #define GCT	2 /* Permissible number fo gateways */
 #define DNA	3 /* Destination network address */
@@ -307,16 +315,19 @@ static const char* finsTCPError(int code);
 
 /**************************************************************************************************/
 
+/* we also support a _Bn suffix to some codes to indicate a bit rather than word operation */ 
 enum FINS_COMMANDS
 {
 	FINS_NULL,
 	FINS_DM_READ, FINS_DM_WRITE, FINS_DM_WRITE_NOREAD,
 	FINS_IO_READ, FINS_IO_WRITE, FINS_IO_WRITE_NOREAD,
 	FINS_AR_READ, FINS_AR_WRITE, FINS_AR_WRITE_NOREAD,
+	FINS_WR_READ, FINS_WR_WRITE, FINS_WR_WRITE_NOREAD,
 	FINS_CT_READ, FINS_CT_WRITE,
 	FINS_DM_READ_32, FINS_DM_WRITE_32, FINS_DM_WRITE_32_NOREAD,
 	FINS_IO_READ_32, FINS_IO_WRITE_32, FINS_IO_WRITE_32_NOREAD,
 	FINS_AR_READ_32, FINS_AR_WRITE_32, FINS_AR_WRITE_32_NOREAD,
+	FINS_WR_READ_32, FINS_WR_WRITE_32, FINS_WR_WRITE_32_NOREAD,
 	FINS_CT_READ_32, FINS_CT_WRITE_32, FINS_CT_WRITE_32_NOREAD,
 	FINS_READ_MULTI,
 	FINS_WRITE_MULTI,
@@ -735,7 +746,7 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 	We'll limit the maximum number of words to 500 which will be sufficient for all of our current applications.
 
 	data		epicsInt16, epicsInt32 or epicsFloat32 data is written here
-	nelements	number of 16 or 32 bit words to read
+	nelements	number of 8, 16 or 32 bit words to read
 	address	PLC memory address
 	asynSize	sizeof(epicsInt16) for asynInt16Array or sizeof(epicsInt32) for asynInt16Array and asynInt32Array.
 */
@@ -747,7 +758,12 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	unsigned expectedlen;
     finsTCPHeader fins_header;
 	epicsTimeStamp ets, ete;
-
+    /* if user_data != 0x0 then we perform a bit rather than word operation */
+    unsigned user_data = 0x0, address_shift = 0x0, bit_number = 0x0;
+    memcpy(&user_data, &(pasynUser->userData), sizeof(user_data));
+    address_shift = (user_data >> 8);
+    bit_number = (user_data & 0xff);
+    
 /* initialise header */
 
 	pdrvPvt->message[ICF] = 0x80;
@@ -769,9 +785,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	
 		case FINS_DM_READ:
 		case FINS_AR_READ:
+		case FINS_WR_READ:
 		case FINS_IO_READ:
 		case FINS_DM_WRITE:
 		case FINS_AR_WRITE:
+		case FINS_WR_WRITE:
 		case FINS_IO_WRITE:
 		{
 			pdrvPvt->message[MRC] = 0x01;
@@ -784,21 +802,28 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 				case FINS_DM_READ:
 				case FINS_DM_WRITE:
 				{
-					pdrvPvt->message[COM] = DM;
+					pdrvPvt->message[COM] = DM - address_shift;
 					break;
 				}
 				
 				case FINS_AR_READ:
 				case FINS_AR_WRITE:
 				{
-					pdrvPvt->message[COM] = AR;
+					pdrvPvt->message[COM] = AR - address_shift;
 					break;
 				}
 				
+				case FINS_WR_READ:
+				case FINS_WR_WRITE:
+				{
+					pdrvPvt->message[COM] = WR - address_shift;
+					break;
+				}
+
 				case FINS_IO_READ:
 				case FINS_IO_WRITE:
 				{
-					pdrvPvt->message[COM] = IO;
+					pdrvPvt->message[COM] = IO - address_shift;
 					break;
 				}
 				
@@ -813,7 +838,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 			pdrvPvt->message[COM+1] = address >> 8;
 			pdrvPvt->message[COM+2] = address & 0xff;
-			pdrvPvt->message[COM+3] = 0x00;
+			pdrvPvt->message[COM+3] = bit_number;
 
 		/* length */
 
@@ -827,9 +852,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 		case FINS_DM_READ_32:
 		case FINS_AR_READ_32:
+		case FINS_WR_READ_32:
 		case FINS_IO_READ_32:
 		case FINS_DM_WRITE_32:
 		case FINS_AR_WRITE_32:
+		case FINS_WR_WRITE_32:
 		case FINS_IO_WRITE_32:
 		{
 			pdrvPvt->message[MRC] = 0x01;
@@ -853,6 +880,13 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 					break;
 				}
 				
+				case FINS_WR_READ_32:
+				case FINS_WR_WRITE_32:
+				{
+					pdrvPvt->message[COM] = WR;
+					break;
+				}
+
 				case FINS_IO_READ_32:
 				case FINS_IO_WRITE_32:
 				{
@@ -1116,9 +1150,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	{
 		case FINS_DM_READ:
 		case FINS_AR_READ:
+		case FINS_WR_READ:
 		case FINS_IO_READ:
 		case FINS_DM_WRITE:
 		case FINS_AR_WRITE:
+		case FINS_WR_WRITE:
 		case FINS_IO_WRITE:
 		{
 
@@ -1127,13 +1163,23 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 			if (asynSize == sizeof(epicsUInt16))
 			{
 				int i;
-				epicsUInt16 *ptrs = (epicsUInt16 *) &pdrvPvt->reply[RESP];
 				epicsUInt16 *ptrd = (epicsUInt16 *) data;
-
-				for (i = 0; i < nelements; i++)
-				{
-					ptrd[i] = BSWAP16(ptrs[i]);
-				}
+                if (address_shift != 0)
+                {
+				    epicsUInt8 *ptrs = (epicsUInt8 *) &pdrvPvt->reply[RESP];
+				    for (i = 0; i < nelements; i++)
+                    {
+                        ptrd[i] = ptrs[i];
+                    }
+                }
+                else
+                {
+				    epicsUInt16 *ptrs = (epicsUInt16 *) &pdrvPvt->reply[RESP];
+				    for (i = 0; i < nelements; i++)
+                    {
+                        ptrd[i] = BSWAP16(ptrs[i]);
+                    }
+                }
 					
 				asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, "%s: port %s, %s %d 16-bit words.\n", FUNCNAME, pdrvPvt->portName, SWAPT, nelements);
 			}
@@ -1143,13 +1189,23 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		
 			{			
 				int i;
-				epicsUInt16 *ptrs = (epicsUInt16 *) &pdrvPvt->reply[RESP];
 				epicsUInt32 *ptrd = (epicsUInt32 *) data;
-
-				for (i = 0; i < nelements; i++)
-				{
-					ptrd[i] = (epicsUInt32) BSWAP16(ptrs[i]);
-				}
+                if (address_shift != 0)
+                {
+				    epicsUInt8 *ptrs = (epicsUInt8 *) &pdrvPvt->reply[RESP];
+                    for (i = 0; i < nelements; i++)
+                    {
+                        ptrd[i] = (epicsUInt32) ptrs[i];
+                    }
+                }
+                else
+                {
+				    epicsUInt16 *ptrs = (epicsUInt16 *) &pdrvPvt->reply[RESP];
+                    for (i = 0; i < nelements; i++)
+                    {
+                        ptrd[i] = (epicsUInt32) BSWAP16(ptrs[i]);
+                    }
+                }
 					
 				asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, "%s: port %s, %s %d 16-bit word.\n", FUNCNAME, pdrvPvt->portName, SWAPT, nelements);
 			}
@@ -1158,7 +1214,14 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		
 			if (transfered)
 			{
-				*transfered = (recvlen - RESP) / sizeof(epicsUInt16);
+                if (address_shift != 0)
+                {
+				    *transfered = (recvlen - RESP) / sizeof(epicsUInt8);
+                }
+                else
+                {
+				    *transfered = (recvlen - RESP) / sizeof(epicsUInt16);
+                }
 			}
 			
 			break;
@@ -1166,9 +1229,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 		case FINS_DM_READ_32:
 		case FINS_AR_READ_32:
+		case FINS_WR_READ_32:
 		case FINS_IO_READ_32:
 		case FINS_DM_WRITE_32:
 		case FINS_AR_WRITE_32:
+		case FINS_WR_WRITE_32:
 		case FINS_IO_WRITE_32:
 		{		
 			int i;
@@ -1343,6 +1408,11 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 	unsigned expectedlen;
     finsTCPHeader fins_header;
 	epicsTimeStamp ets, ete;
+    /* if user_data != 0x0 then we perform a bit rather than word operation */
+    unsigned user_data = 0x0, address_shift = 0x0, bit_number = 0x0;
+    memcpy(&user_data, &(pasynUser->userData), sizeof(user_data));
+    address_shift = (user_data >> 8);
+    bit_number = (user_data & 0xff);
 	
 /* initialise header */
 
@@ -1367,6 +1437,8 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 		case FINS_DM_WRITE_NOREAD:
 		case FINS_AR_WRITE:
 		case FINS_AR_WRITE_NOREAD:
+		case FINS_WR_WRITE:
+		case FINS_WR_WRITE_NOREAD:
 		case FINS_IO_WRITE:
 		case FINS_IO_WRITE_NOREAD:
 		{
@@ -1380,21 +1452,28 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 				case FINS_DM_WRITE:
 				case FINS_DM_WRITE_NOREAD:
 				{
-					pdrvPvt->message[COM] = DM;
+					pdrvPvt->message[COM] = DM - address_shift;
 					break;
 				}
 				
 				case FINS_AR_WRITE:
 				case FINS_AR_WRITE_NOREAD:
 				{
-					pdrvPvt->message[COM] = AR;
+					pdrvPvt->message[COM] = AR - address_shift;
+					break;
+				}
+
+				case FINS_WR_WRITE:
+				case FINS_WR_WRITE_NOREAD:
+				{
+					pdrvPvt->message[COM] = WR - address_shift;
 					break;
 				}
 				
 				case FINS_IO_WRITE:
 				case FINS_IO_WRITE_NOREAD:
 				{
-					pdrvPvt->message[COM] = IO;
+					pdrvPvt->message[COM] = IO - address_shift;
 					break;
 				}
 				
@@ -1409,7 +1488,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 			pdrvPvt->message[COM+1] = address >> 8;
 			pdrvPvt->message[COM+2] = address & 0xff;
-			pdrvPvt->message[COM+3] = 0x00;
+			pdrvPvt->message[COM+3] = bit_number;
 
 		/* length */
 
@@ -1421,13 +1500,23 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 			if (asynSize == sizeof(epicsUInt16))
 			{
 				int i;
-				epicsUInt16 *ptrd = (epicsUInt16 *) &pdrvPvt->message[COM + 6];
 				epicsUInt16 *ptrs = (epicsUInt16 *) data;
-
-				for (i = 0; i < nwords; i++)
-				{
-					ptrd[i] = BSWAP16(ptrs[i]);
-				}
+                if (address_shift != 0)
+                {
+				    epicsUInt8 *ptrd = (epicsUInt8 *) &pdrvPvt->message[COM + 6];
+				    for (i = 0; i < nwords; i++)
+				    {
+					    ptrd[i] = (epicsUInt8)ptrs[i];
+				    }
+                }
+                else
+                {
+				    epicsUInt16 *ptrd = (epicsUInt16 *) &pdrvPvt->message[COM + 6];
+				    for (i = 0; i < nwords; i++)
+				    {
+					    ptrd[i] = BSWAP16(ptrs[i]);
+				    }
+                }
 
 				asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, "%s: port %s, %s %d 16-bit words.\n", FUNCNAME, pdrvPvt->portName, SWAPT, nwords);
 			}
@@ -1437,19 +1526,35 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 		
 			{
 				int i;
-				epicsUInt16 *ptrd = (epicsUInt16 *) &pdrvPvt->message[COM + 6];
 				epicsUInt32 *ptrs = (epicsUInt32 *) data;
-
-				for (i = 0; i < nwords; i++)
-				{
-					ptrd[i] = BSWAP16((epicsUInt16) ptrs[i]);
-				}
+                if (address_shift != 0)
+                {
+				    epicsUInt8 *ptrd = (epicsUInt8 *) &pdrvPvt->message[COM + 6];
+				    for (i = 0; i < nwords; i++)
+                    {
+                        ptrd[i] = ptrs[i];
+                    }
+                }
+                else
+                {
+				    epicsUInt16 *ptrd = (epicsUInt16 *) &pdrvPvt->message[COM + 6];
+				    for (i = 0; i < nwords; i++)
+                    {
+                        ptrd[i] = BSWAP16((epicsUInt16) ptrs[i]);
+                    }
+                }
 
 				asynPrint(pasynUser, ASYN_TRACEIO_DRIVER, "%s: port %s, %s %d 16-bit word.\n", FUNCNAME, pdrvPvt->portName, SWAPT, nwords);				
 			}
 			
-			sendlen = (int)(COM + 6 + nwords * sizeof(short));
-			
+            if (address_shift != 0)
+            {
+			    sendlen = (int)(COM + 6 + nwords * sizeof(unsigned char));
+            }
+            else
+            {
+			    sendlen = (int)(COM + 6 + nwords * sizeof(short));
+			}
 			break;
 		}
 
@@ -1457,6 +1562,8 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 		case FINS_DM_WRITE_32_NOREAD:
 		case FINS_AR_WRITE_32:
 		case FINS_AR_WRITE_32_NOREAD:
+		case FINS_WR_WRITE_32:
+		case FINS_WR_WRITE_32_NOREAD:
 		case FINS_IO_WRITE_32:
 		case FINS_IO_WRITE_32_NOREAD:
 		{
@@ -1478,6 +1585,13 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 				case FINS_AR_WRITE_32_NOREAD:
 				{
 					pdrvPvt->message[COM] = AR;
+					break;
+				}
+
+				case FINS_WR_WRITE_32:
+				case FINS_WR_WRITE_32_NOREAD:
+				{
+					pdrvPvt->message[COM] = WR;
 					break;
 				}
 				
@@ -1861,6 +1975,12 @@ static asynStatus ReadInt32(void *pvt, asynUser *pasynUser, epicsInt32 *value)
 			break;
 		}
 		
+		case FINS_WR_READ:
+		{
+			type = "FINS_WR_READ";
+			break;
+		}
+
 		case FINS_IO_READ:
 		{
 			type = "FINS_IO_READ";
@@ -1879,6 +1999,12 @@ static asynStatus ReadInt32(void *pvt, asynUser *pasynUser, epicsInt32 *value)
 			break;
 		}
 		
+		case FINS_WR_READ_32:
+		{
+			type = "FINS_WR_READ_32";
+			break;
+		}
+
 		case FINS_IO_READ_32:
 		{
 			type = "FINS_IO_READ_32";
@@ -1920,10 +2046,12 @@ static asynStatus ReadInt32(void *pvt, asynUser *pasynUser, epicsInt32 *value)
 		case FINS_DM_WRITE:
 		case FINS_IO_WRITE:
 		case FINS_AR_WRITE:
+		case FINS_WR_WRITE:
 		case FINS_CT_WRITE:
 		case FINS_DM_WRITE_32:
 		case FINS_IO_WRITE_32:
 		case FINS_AR_WRITE_32:
+		case FINS_WR_WRITE_32:
 		case FINS_CT_WRITE_32:
 		{
 			type = "WRITE";
@@ -1933,9 +2061,11 @@ static asynStatus ReadInt32(void *pvt, asynUser *pasynUser, epicsInt32 *value)
 		case FINS_DM_WRITE_NOREAD:
 		case FINS_IO_WRITE_NOREAD:
 		case FINS_AR_WRITE_NOREAD:
+		case FINS_WR_WRITE_NOREAD:
 		case FINS_DM_WRITE_32_NOREAD:
 		case FINS_IO_WRITE_32_NOREAD:
 		case FINS_AR_WRITE_32_NOREAD:
+		case FINS_WR_WRITE_32_NOREAD:
 		{
 			asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s: port %s, addr %d, WRITE_NOREAD\n", FUNCNAME, pdrvPvt->portName, addr);
 			return (asynError);
@@ -2005,6 +2135,18 @@ static asynStatus WriteInt32(void *pvt, asynUser *pasynUser, epicsInt32 value)
 			break;
 		}
 		
+		case FINS_WR_WRITE:
+		{
+			type = "FINS_WR_WRITE";
+			break;
+		}
+
+		case FINS_WR_WRITE_NOREAD:
+		{
+			type = "FINS_WR_WRITE_NOREAD";
+			break;
+		}
+
 		case FINS_IO_WRITE:
 		{
 			type = "FINS_IO_WRITE";
@@ -2047,6 +2189,18 @@ static asynStatus WriteInt32(void *pvt, asynUser *pasynUser, epicsInt32 value)
 			break;
 		}
 		
+		case FINS_WR_WRITE_32:
+		{
+			type = "FINS_WR_WRITE_32";
+			break;
+		}
+		
+		case FINS_WR_WRITE_32_NOREAD:
+		{
+			type = "FINS_WR_WRITE_32_NOREAD";
+			break;
+		}
+
 		case FINS_IO_WRITE_32:
 		{
 			type = "FINS_IO_WRITE_32";
@@ -2074,6 +2228,8 @@ static asynStatus WriteInt32(void *pvt, asynUser *pasynUser, epicsInt32 value)
 		case FINS_DM_WRITE_NOREAD:
 		case FINS_AR_WRITE:
 		case FINS_AR_WRITE_NOREAD:
+		case FINS_WR_WRITE:
+		case FINS_WR_WRITE_NOREAD:
 		case FINS_IO_WRITE:
 		case FINS_IO_WRITE_NOREAD:
 		case FINS_CYCLE_TIME_RESET:
@@ -2093,6 +2249,8 @@ static asynStatus WriteInt32(void *pvt, asynUser *pasynUser, epicsInt32 value)
 		case FINS_DM_WRITE_32_NOREAD:
 		case FINS_AR_WRITE_32:
 		case FINS_AR_WRITE_32_NOREAD:
+		case FINS_WR_WRITE_32:
+		case FINS_WR_WRITE_32_NOREAD:
 		case FINS_IO_WRITE_32:
 		case FINS_IO_WRITE_32_NOREAD:
 		{
@@ -2151,6 +2309,11 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 			type = "FINS_AR_READ";
 			break;
 		}
+		case FINS_WR_READ:
+		{
+			type = "FINS_WR_READ";
+			break;
+		}
 		case FINS_IO_READ:
 		{
 			type = "FINS_IO_READ";
@@ -2176,6 +2339,7 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 	{
 		case FINS_DM_READ:
 		case FINS_AR_READ:
+		case FINS_WR_READ:
 		case FINS_IO_READ:
 		{
 			if (nelements > FINS_MAX_WORDS)
@@ -2248,6 +2412,11 @@ static asynStatus WriteInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *va
 			type = "FINS_AR_WRITE";
 			break;
 		}
+		case FINS_WR_WRITE:
+		{
+			type = "FINS_WR_WRITE";
+			break;
+		}
 		case FINS_IO_WRITE:
 		{
 			type = "FINS_IO_WRITE";
@@ -2267,6 +2436,7 @@ static asynStatus WriteInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *va
 	{
 		case FINS_DM_WRITE:
 		case FINS_AR_WRITE:
+		case FINS_WR_WRITE:
 		case FINS_IO_WRITE:
 		{
 			if (nelements > FINS_MAX_WORDS)
@@ -2329,6 +2499,11 @@ static asynStatus ReadInt32Array(void *pvt, asynUser *pasynUser, epicsInt32 *val
 			type = "FINS_AR_READ_32";
 			break;
 		}
+		case FINS_WR_READ_32:
+		{
+			type = "FINS_WR_READ_32";
+			break;
+		}
 		
 		case FINS_IO_READ_32:
 		{
@@ -2355,6 +2530,7 @@ static asynStatus ReadInt32Array(void *pvt, asynUser *pasynUser, epicsInt32 *val
 	{
 		case FINS_DM_READ_32:
 		case FINS_AR_READ_32:
+		case FINS_WR_READ_32:
 		case FINS_IO_READ_32:
 		{
 			if ((nelements * 2) > FINS_MAX_WORDS)
@@ -2427,6 +2603,11 @@ static asynStatus WriteInt32Array(void *pvt, asynUser *pasynUser, epicsInt32 *va
 			type = "FINS_AR_WRITE_32";
 			break;
 		}
+		case FINS_WR_WRITE_32:
+		{
+			type = "FINS_WR_WRITE_32";
+			break;
+		}
 		
 		case FINS_IO_WRITE_32:
 		{
@@ -2447,6 +2628,7 @@ static asynStatus WriteInt32Array(void *pvt, asynUser *pasynUser, epicsInt32 *va
 	{
 		case FINS_DM_WRITE_32:
 		case FINS_AR_WRITE_32:
+		case FINS_WR_WRITE_32:
 		case FINS_IO_WRITE_32:
 		{
 			if ((nelements * 2) > FINS_MAX_WORDS)
@@ -2513,6 +2695,11 @@ static asynStatus ReadFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32 
 			type = "FINS_AR_READ_32";
 			break;
 		}
+		case FINS_WR_READ_32:
+		{
+			type = "FINS_WR_READ_32";
+			break;
+		}
 		
 		case FINS_IO_READ_32:
 		{
@@ -2533,6 +2720,7 @@ static asynStatus ReadFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32 
 	{
 		case FINS_DM_READ_32:
 		case FINS_AR_READ_32:
+		case FINS_WR_READ_32:
 		case FINS_IO_READ_32:
 		{
 			if ((nelements * 2) > FINS_MAX_WORDS)
@@ -2594,6 +2782,11 @@ static asynStatus WriteFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32
 			type = "FINS_AR_WRITE_32";
 			break;
 		}
+		case FINS_WR_WRITE_32:
+		{
+			type = "FINS_WR_WRITE_32";
+			break;
+		}
 		
 		case FINS_IO_WRITE_32:
 		{
@@ -2614,6 +2807,7 @@ static asynStatus WriteFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32
 	{
 		case FINS_DM_WRITE_32:
 		case FINS_AR_WRITE_32:
+		case FINS_WR_WRITE_32:
 		case FINS_IO_WRITE_32:
 		{
 			if ((nelements * 2) > FINS_MAX_WORDS)
@@ -2648,13 +2842,20 @@ static asynStatus WriteFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32
 
 asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, const char **pptypeName, size_t *psize)
 {
+    int i = 0;
+    unsigned user_data = 0x0;
 	drvPvt *pdrvPvt = (drvPvt *) pvt;
-
 	if (drvInfo)
 	{
 		if (strcmp("FINS_DM_READ", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_DM_READ;
+		}
+        else
+		if (sscanf(drvInfo, "FINS_DM_READ_B%d", &i) == 1)
+		{
+			pasynUser->reason = FINS_DM_READ;
+			user_data = (0x80 << 8) + i;
 		}
 		else
 		if (strcmp("FINS_DM_READ_32", drvInfo) == 0)
@@ -2665,6 +2866,12 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		if (strcmp("FINS_DM_WRITE", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_DM_WRITE;
+		}
+        else
+		if (sscanf(drvInfo, "FINS_DM_WRITE_B%d", &i) == 1)
+		{
+			pasynUser->reason = FINS_DM_WRITE;
+			user_data = (0x80 << 8) + i;
 		}
 		else
 		if (strcmp("FINS_DM_WRITE_NOREAD", drvInfo) == 0)
@@ -2687,6 +2894,12 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 			pasynUser->reason = FINS_IO_READ;
 		}
 		else
+		if (sscanf(drvInfo, "FINS_IO_READ_B%d", &i) == 1)
+		{
+			pasynUser->reason = FINS_IO_READ;
+			user_data = (0x80 << 8) + i;
+		}
+		else
 		if (strcmp("FINS_IO_READ_32", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_IO_READ_32;
@@ -2695,6 +2908,12 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		if (strcmp("FINS_IO_WRITE", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_IO_WRITE;
+		}
+		else
+		if (sscanf(drvInfo, "FINS_IO_WRITE_B%d", &i) == 1)
+		{
+			pasynUser->reason = FINS_IO_WRITE;
+			user_data = (0x80 << 8) + i;
 		}
 		else
 		if (strcmp("FINS_IO_WRITE_NOREAD", drvInfo) == 0)
@@ -2740,6 +2959,48 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		if (strcmp("FINS_AR_WRITE_32_NOREAD", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_AR_WRITE_32_NOREAD;
+		}
+		else
+		if (strcmp("FINS_WR_READ", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_WR_READ;
+		}
+        else
+		if (sscanf(drvInfo, "FINS_WR_READ_B%d", &i) == 1)
+		{
+			pasynUser->reason = FINS_WR_READ;
+			user_data = (0x80 << 8) + i;
+		}
+        else
+		if (strcmp("FINS_WR_READ_32", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_WR_READ_32;
+		}
+		else
+		if (strcmp("FINS_WR_WRITE", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_WR_WRITE;
+		}
+		else
+		if (sscanf(drvInfo, "FINS_WR_WRITE_B%d", &i) == 1)
+		{
+			pasynUser->reason = FINS_WR_WRITE;
+			user_data = (0x80 << 8) + i;
+		}
+		else
+		if (strcmp("FINS_WR_WRITE_NOREAD", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_WR_WRITE_NOREAD;
+		}
+		else
+		if (strcmp("FINS_WR_WRITE_32", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_WR_WRITE_32;
+		}
+		else
+		if (strcmp("FINS_WR_WRITE_32_NOREAD", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_WR_WRITE_32_NOREAD;
 		}
 		else
 		if (strcmp("FINS_CT_READ", drvInfo) == 0)
@@ -2810,6 +3071,7 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		{
 			pasynUser->reason = FINS_NULL;
 		}
+        memcpy(&(pasynUser->userData), &user_data, sizeof(user_data)); 
 
 		asynPrint(pasynUser, ASYN_TRACEIO_DEVICE, "drvUserCreate: port %s, %s = %d\n", pdrvPvt->portName, drvInfo, pasynUser->reason);
 
