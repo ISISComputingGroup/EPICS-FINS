@@ -646,7 +646,8 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	{
 		pdrvPvt->client_node = FINS_SOURCE_ADDR;
 	}
-	pdrvPvt->na = 0x01;
+	//KVLB - change to allow for access to LARMOR micro=PLC
+	pdrvPvt->na = 0x00;
 	
 	pdrvPvt->connected = 1;
 	pasynManager->exceptionConnect(pasynUser);
