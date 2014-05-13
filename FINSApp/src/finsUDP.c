@@ -241,7 +241,8 @@ typedef struct drvPvt
 
 	epicsUInt8 sid;			/* seesion id - increment for each message */
 	
-	uint8_t na; /* value to use for sna, dna - 0x0 if local, 0x1 if remote */
+	uint8_t sna; /* value to use for sna, dna - 0x0 if local, > 0x0 if remote */
+	uint8_t dna; /* value to use for sna, dna - 0x0 if local, > 0x0 if remote */
 	
 	struct sockaddr_in addr;	/* PLC destination address */
 	
@@ -357,7 +358,8 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	
 	pdrvPvt = callocMustSucceed(1, sizeof(drvPvt), FUNCNAME);
 	pdrvPvt->portName = epicsStrDup(portName);
-	
+	pdrvPvt->connected = 0;
+    pdrvPvt->fd = -1;
 	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
 	{
 		pdrvPvt->tcp_protocol = 1;
@@ -646,9 +648,16 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	{
 		pdrvPvt->client_node = FINS_SOURCE_ADDR;
 	}
-	//KVLB - change to allow for access to LARMOR micro=PLC
-	pdrvPvt->na = 0x00;
-	
+    if (1) /* at the moment assume local */
+    {
+	    pdrvPvt->sna = 0x00; /* local */
+	    pdrvPvt->dna = 0x00; /* local */
+    }
+    else
+    {
+	    pdrvPvt->sna = 0x01; /* needs to be agreed with PLC */
+	    pdrvPvt->dna = 0x02; /* needs to be agreed with PLC */
+    }
 	pdrvPvt->connected = 1;
 	pasynManager->exceptionConnect(pasynUser);
 	return (asynSuccess);
@@ -771,11 +780,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	pdrvPvt->message[RSV] = 0x00;
 	pdrvPvt->message[GCT] = FINS_GATEWAY;
 
-	pdrvPvt->message[DNA] = pdrvPvt->na;
+	pdrvPvt->message[DNA] = pdrvPvt->dna;
 	pdrvPvt->message[DA1] = pdrvPvt->node;
 	pdrvPvt->message[DA2] = 0x00;
 
-	pdrvPvt->message[SNA] = pdrvPvt->na;
+	pdrvPvt->message[SNA] = pdrvPvt->sna;
 	pdrvPvt->message[SA1] = pdrvPvt->client_node;
 	pdrvPvt->message[SA2] = 0x00;
 
@@ -1421,11 +1430,11 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 	pdrvPvt->message[RSV] = 0x00;
 	pdrvPvt->message[GCT] = FINS_GATEWAY;
 
-	pdrvPvt->message[DNA] = pdrvPvt->na;
+	pdrvPvt->message[DNA] = pdrvPvt->dna;
 	pdrvPvt->message[DA1] = pdrvPvt->node;
 	pdrvPvt->message[DA2] = 0x00;
 
-	pdrvPvt->message[SNA] = pdrvPvt->na;
+	pdrvPvt->message[SNA] = pdrvPvt->sna;
 	pdrvPvt->message[SA1] = pdrvPvt->client_node;
 	pdrvPvt->message[SA2] = 0x00;
 	
