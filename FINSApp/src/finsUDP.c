@@ -373,11 +373,6 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	
 	pasynOctet = callocMustSucceed(1, sizeof(asynOctet), FUNCNAME);
 	
-/* asynCommon */
-
-	pdrvPvt->common.interfaceType = asynCommonType;
-	pdrvPvt->common.pinterface = (void *) &asyn;
-	pdrvPvt->common.drvPvt = pdrvPvt;
 
 	status = pasynManager->registerPort(portName, ASYN_MULTIDEVICE | ASYN_CANBLOCK, 1, 0, 0);
 
@@ -387,7 +382,85 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		return (-1);
 	}
 	
-/* common */
+	if ( pdrvPvt->tcp_protocol )
+	{
+		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+	}
+	else
+	{
+		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0);
+	}
+	if (pdrvPvt->fd < 0)
+	{
+		printf("%s: Can't create socket: %s", FUNCNAME, socket_errmsg());
+		return (-1);
+	}
+	if (aToIPAddr(address, fins_port, &pdrvPvt->addr) < 0)
+	{
+		printf("%s: Bad IP address %s\n", FUNCNAME, address);
+		epicsSocketDestroy(pdrvPvt->fd);
+		return (-1);
+	}
+
+	printf("%s: using address %s protocol %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
+	if ( !(pdrvPvt->tcp_protocol) )
+	{
+	
+	/* create incoming FINS UDP server port - dynamically allocated */
+	
+		struct sockaddr_in addr;
+		const int addrlen = sizeof(struct sockaddr_in);
+		
+		memset(&(addr), 0, addrlen);
+
+		addr.sin_addr.s_addr = htonl(INADDR_ANY);
+		addr.sin_family = AF_INET;
+		addr.sin_port = htons(0);
+
+		errno = 0;
+		
+		if (bind(pdrvPvt->fd, (struct sockaddr *) &addr, addrlen) < 0)
+		{
+			printf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
+			epicsSocketDestroy(pdrvPvt->fd);
+			return (-1);
+		}
+		
+	/* find our port number and inform the user */
+	
+		{
+			struct sockaddr_in name;
+#ifdef vxWorks
+			int namelen = sizeof(name);
+#else
+			socklen_t namelen = sizeof(name);
+#endif			
+			errno = 0;
+		
+			if (getsockname(pdrvPvt->fd, (struct sockaddr *) &name, &namelen) < 0)
+			{
+				printf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
+				epicsSocketDestroy(pdrvPvt->fd);
+				return (-1);
+			}
+			
+			printf("%s: using port %d\n", FUNCNAME, name.sin_port);
+		}
+	}
+		
+	/* node address is last byte of IP address */
+		
+	pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
+			
+	printf("%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
+	pdrvPvt->tMin = 100.0;
+
+/* asynCommon */
+
+	pdrvPvt->common.interfaceType = asynCommonType;
+	pdrvPvt->common.pinterface = (void *) &asyn;
+	pdrvPvt->common.drvPvt = pdrvPvt;
+   /* common */
 
 	status = pasynManager->registerInterface(portName, &pdrvPvt->common);
 	
@@ -509,80 +582,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		printf("%s: registerInterface asynFloat32Array failed\n", FUNCNAME);
 		return (-1);
 	}
-	if ( pdrvPvt->tcp_protocol )
-	{
-		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
-	}
-	else
-	{
-		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0);
-	}
-	if (pdrvPvt->fd < 0)
-	{
-		printf("%s: Can't create socket: %s", FUNCNAME, socket_errmsg());
-		return (-1);
-	}
-	if (aToIPAddr(address, fins_port, &pdrvPvt->addr) < 0)
-	{
-		printf("%s: Bad IP address %s\n", FUNCNAME, address);
-		epicsSocketDestroy(pdrvPvt->fd);
-		return (-1);
-	}
-
-	printf("%s: using address %s protocol %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
 	
-	if ( !(pdrvPvt->tcp_protocol) )
-	{
-	
-	/* create incoming FINS UDP server port - dynamically allocated */
-	
-		struct sockaddr_in addr;
-		const int addrlen = sizeof(struct sockaddr_in);
-		
-		memset(&(addr), 0, addrlen);
-
-		addr.sin_addr.s_addr = htonl(INADDR_ANY);
-		addr.sin_family = AF_INET;
-		addr.sin_port = htons(0);
-
-		errno = 0;
-		
-		if (bind(pdrvPvt->fd, (struct sockaddr *) &addr, addrlen) < 0)
-		{
-			printf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
-			epicsSocketDestroy(pdrvPvt->fd);
-			return (-1);
-		}
-		
-	/* find our port number and inform the user */
-	
-		{
-			struct sockaddr_in name;
-#ifdef vxWorks
-			int namelen = sizeof(name);
-#else
-			socklen_t namelen = sizeof(name);
-#endif			
-			errno = 0;
-		
-			if (getsockname(pdrvPvt->fd, (struct sockaddr *) &name, &namelen) < 0)
-			{
-				printf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
-				epicsSocketDestroy(pdrvPvt->fd);
-				return (-1);
-			}
-			
-			printf("%s: using port %d\n", FUNCNAME, name.sin_port);
-		}
-	}
-		
-
-	/* node address is last byte of IP address */
-		
-	pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
-			
-	printf("%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
-	pdrvPvt->tMin = 100.0;
 	
  	return (0);
 }
