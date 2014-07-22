@@ -641,7 +641,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		{
 			return (asynError);
 		}
-		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);
+        printf("%s finsUDP:connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
 		pdrvPvt->client_node = fins_header.extra[0];
 	}
 	else
