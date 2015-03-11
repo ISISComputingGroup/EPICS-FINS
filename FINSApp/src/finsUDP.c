@@ -112,6 +112,7 @@
 #include <registryFunction.h>
 #include <epicsExport.h>
 #include <epicsEndian.h>
+#include <errlog.h>
 
 #include <osiUnistd.h>
 #include <osiSock.h>
@@ -378,7 +379,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 
 	if (status != asynSuccess)
 	{
-		printf("%s: driver registerPort failed\n", FUNCNAME);
+		errlogPrintf("%s: driver registerPort failed\n", FUNCNAME);
 		return (-1);
 	}
 	
@@ -392,17 +393,17 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	}
 	if (pdrvPvt->fd < 0)
 	{
-		printf("%s: Can't create socket: %s", FUNCNAME, socket_errmsg());
+		errlogPrintf("%s: Can't create socket: %s", FUNCNAME, socket_errmsg());
 		return (-1);
 	}
 	if (aToIPAddr(address, fins_port, &pdrvPvt->addr) < 0)
 	{
-		printf("%s: Bad IP address %s\n", FUNCNAME, address);
+		errlogPrintf("%s: Bad IP address %s\n", FUNCNAME, address);
 		epicsSocketDestroy(pdrvPvt->fd);
 		return (-1);
 	}
 
-	printf("%s: using address %s protocol %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
+	errlogSevPrintf(errlogInfo, "%s: using address %s protocol %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
 	if ( !(pdrvPvt->tcp_protocol) )
 	{
 	
@@ -421,7 +422,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 		if (bind(pdrvPvt->fd, (struct sockaddr *) &addr, addrlen) < 0)
 		{
-			printf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
+			errlogPrintf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
 			epicsSocketDestroy(pdrvPvt->fd);
 			return (-1);
 		}
@@ -439,12 +440,12 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 			if (getsockname(pdrvPvt->fd, (struct sockaddr *) &name, &namelen) < 0)
 			{
-				printf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
+				errlogPrintf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
 				epicsSocketDestroy(pdrvPvt->fd);
 				return (-1);
 			}
 			
-			printf("%s: using port %d\n", FUNCNAME, name.sin_port);
+			errlogSevPrintf(errlogInfo, "%s: using port %d\n", FUNCNAME, name.sin_port);
 		}
 	}
 		
@@ -452,7 +453,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 	pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
 			
-	printf("%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
+	errlogSevPrintf(errlogInfo, "%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
 	pdrvPvt->tMin = 100.0;
 
 /* asynCommon */
@@ -466,7 +467,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface common failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface common failed\n", FUNCNAME);
 		return (-1);
 	}
 
@@ -480,7 +481,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface drvUser failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface drvUser failed\n", FUNCNAME);
 		return 0;
 	}
 	
@@ -503,7 +504,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface asynOctet failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface asynOctet failed\n", FUNCNAME);
 		return (-1);
 	}
 
@@ -522,7 +523,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface asynInt32 failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface asynInt32 failed\n", FUNCNAME);
 		return (-1);
 	}
 	
@@ -541,7 +542,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface asynInt16Array failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface asynInt16Array failed\n", FUNCNAME);
 		return (-1);
 	}
 
@@ -560,7 +561,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface asynInt32Array failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface asynInt32Array failed\n", FUNCNAME);
 		return (-1);
 	}
 
@@ -579,7 +580,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		
 	if (status != asynSuccess)
 	{
-		printf("%s: registerInterface asynFloat32Array failed\n", FUNCNAME);
+		errlogPrintf("%s: registerInterface asynFloat32Array failed\n", FUNCNAME);
 		return (-1);
 	}
 	
@@ -641,7 +642,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		{
 			return (asynError);
 		}
-        printf("%s finsUDP:connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
+        errlogSevPrintf(errlogInfo, "%s finsUDP:connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
 		pdrvPvt->client_node = fins_header.extra[0];
 	}
 	else
@@ -3184,7 +3185,7 @@ static int send_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 		}
 		else
 		{
-			printf("send_fins_header: port %s, send() failed with %s.\n", portName, socket_errmsg());
+			errlogPrintf("send_fins_header: port %s, send() failed with %s.\n", portName, socket_errmsg());
 		}
 		return (-1);
 	}
@@ -3261,7 +3262,7 @@ static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 		}
 		else
 		{
-			printf("recv_fins_header: port %s, recv() failed with %s.\n", portName, socket_errmsg());
+			errlogPrintf("recv_fins_header: port %s, recv() failed with %s.\n", portName, socket_errmsg());
 		}
 		return (-1);
 	}
@@ -3275,7 +3276,7 @@ static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 		}
 		else
 		{
-			printf("recv_fins_header: port %s, FINS error: %s\n", portName, finsTCPError(fins_header->error_code));
+			errlogPrintf("recv_fins_header: port %s, FINS error: %s\n", portName, finsTCPError(fins_header->error_code));
 		}
 		return (-1);
 	}
@@ -3288,7 +3289,7 @@ static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 		}
 		else
 		{
-		    printf("recv_fins_header: port %s, incorrect command returned %d != %d.\n", 
+		    errlogPrintf("recv_fins_header: port %s, incorrect command returned %d != %d.\n", 
 					portName, fins_header->command, command_ret);
 		}
 		return (-1);
@@ -3495,7 +3496,7 @@ int finsTest(char *address, char* protocol)
 	}
 	if (fd < 0)
 	{
-		printf("finsTest: socket %s\n", socket_errmsg());
+		errlogPrintf("finsTest: socket %s\n", socket_errmsg());
 		return (-1);
 	}
 	
@@ -3512,7 +3513,7 @@ int finsTest(char *address, char* protocol)
 /* bind socket to address */
 		if (bind(fd, (struct sockaddr *) &addr, addrlen) < 0)
 		{
-			printf("finsTest: bind %s\n", socket_errmsg());
+			errlogPrintf("finsTest: bind %s\n", socket_errmsg());
 			epicsSocketDestroy(fd);
 			return (-1);
 		}
@@ -3529,7 +3530,7 @@ int finsTest(char *address, char* protocol)
 #endif			
 		getsockname(fd, (struct sockaddr *) &name, &namelen);
 
-		printf("finsTest: port %d bound\n", ntohs(name.sin_port));
+		errlogSevPrintf(errlogInfo, "finsTest: port %d bound\n", ntohs(name.sin_port));
 	}
 	
 /* destination port address used later in sendto() */
@@ -3545,7 +3546,7 @@ int finsTest(char *address, char* protocol)
 
 	if (aToIPAddr(address, FINS_UDP_PORT, &addr) < 0)
 	{
-		printf("finsTest: Bad IP address %s\n", address);
+		errlogPrintf("finsTest: Bad IP address %s\n", address);
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3554,11 +3555,11 @@ int finsTest(char *address, char* protocol)
 		
 	node = ntohl(addr.sin_addr.s_addr) & 0xff;
 		
-	printf("PLC node %d\n", node);
+	errlogSevPrintf(errlogInfo, "PLC node %d\n", node);
 
 	if (connect(fd, (const struct sockaddr*)&addr, sizeof(addr)) < 0)
 	{
-		printf("connect() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
+		errlogPrintf("connect() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3575,7 +3576,7 @@ int finsTest(char *address, char* protocol)
 			epicsSocketDestroy(fd);
 			return (-1);
 		}
-		printf("Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
+		errlogSevPrintf(errlogInfo, "Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
 		client_node = fins_header.extra[0];
 	}
 	else
@@ -3641,7 +3642,7 @@ int finsTest(char *address, char* protocol)
 
 	if (send(fd, message, sendlen, 0) != sendlen)
 	{
-		printf("send() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
+		errlogPrintf("send() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3672,14 +3673,14 @@ int finsTest(char *address, char* protocol)
 		{
 			case -1:
 			{
-				printf("finsTest: select %s\n", socket_errmsg());	
+				errlogPrintf("finsTest: select %s\n", socket_errmsg());	
 				return (-1);
 				break;
 			}
 			
 			case 0:
 			{
-				printf("finsTest: select timeout\n");
+				errlogPrintf("finsTest: select timeout\n");
 				return (-1);
 				break;
 			}
@@ -3700,14 +3701,14 @@ int finsTest(char *address, char* protocol)
 
 		if ((recvlen = socket_recv(fd, (char*)message, FINS_MAX_MSG, 0)) < 0)
 		{
-			printf("finsTest: recv %s.\n", socket_errmsg());
+			errlogPrintf("finsTest: recv %s.\n", socket_errmsg());
 			epicsSocketDestroy(fd);
 			return (-1);
 		}
 	expectedlen = fins_header.length - 8;
 	if ( tcp_protocol && (recvlen != expectedlen) )
 	{
-		printf("finsTest: recvfrom incorrect size %d != %d.\n", recvlen, expectedlen);
+		errlogPrintf("finsTest: recvfrom incorrect size %d != %d.\n", recvlen, expectedlen);
 		epicsSocketDestroy(fd);
 		return (-1);
 	}
@@ -3716,7 +3717,7 @@ int finsTest(char *address, char* protocol)
 		
 		for (i = 0; i < recvlen; i++)
 		{
-			printf("0x%02x ", message[i]);
+			errlogPrintf("0x%02x ", message[i]);
 		}
 	
 		puts("");
@@ -3744,103 +3745,103 @@ int finsTest(char *address, char* protocol)
 		{
 			case 0x01:
 			{
-				printf("%s 0x%02x\n", error01, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error01, message[SRES]);
 				break;
 			}
 		
 			case 0x02:
 			{
-				printf("%s 0x%02x\n", error02, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error02, message[SRES]);
 				break;
 			}
 		
 			case 0x03:
 			{
-				printf("%s 0x%02x\n", error03, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error03, message[SRES]);
 				break;
 			}
 		
 			case 0x04:
 			{
-				printf("%s 0x%02x\n", error04, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error04, message[SRES]);
 				break;
 			}
 		
 			case 0x05:
 			{
-				printf("%s 0x%02x\n", error05, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error05, message[SRES]);
 				break;
 			}
 		
 			case 0x10:
 			{
-				printf("%s 0x%02x\n", error10, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error10, message[SRES]);
 				break;
 			}
 		
 			case 0x11:
 			{
-				printf("%s 0x%02x\n", error11, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error11, message[SRES]);
 				break;
 			}
 		
 			case 0x20:
 			{
-				printf("%s 0x%02x\n", error20, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error20, message[SRES]);
 				break;
 			}
 		
 			case 0x21:
 			{
-				printf("%s 0x%02x\n", error21, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error21, message[SRES]);
 				break;
 			}
 		
 			case 0x22:
 			{
-				printf("%s 0x%02x\n", error22, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error22, message[SRES]);
 				break;
 			}
 		
 			case 0x23:
 			{
-				printf("%s 0x%02x\n", error23, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error23, message[SRES]);
 				break;
 			}
 		
 			case 0x24:
 			{
-				printf("%s 0x%02x\n", error24, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error24, message[SRES]);
 				break;
 			}
 		
 			case 0x25:
 			{
-				printf("%s 0x%02x\n", error25, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error25, message[SRES]);
 				break;
 			}
 		
 			case 0x26:
 			{
-				printf("%s 0x%02x\n", error26, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error26, message[SRES]);
 				break;
 			}
 		
 			case 0x30:
 			{
-				printf("%s 0x%02x\n", error30, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error30, message[SRES]);
 				break;
 			}
 		
 			case 0x40:
 			{
-				printf("%s 0x%02x\n", error40, message[SRES]);
+				errlogPrintf("%s 0x%02x\n", error40, message[SRES]);
 				break;
 			}
 		
 			default:
 			{
-				printf("Error 0x%02x/0x%02x\n", message[MRES], message[SRES]);
+				errlogPrintf("Error 0x%02x/0x%02x\n", message[MRES], message[SRES]);
 				break;
 			}
 		}
