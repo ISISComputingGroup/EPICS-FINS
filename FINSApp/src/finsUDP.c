@@ -600,6 +600,19 @@ static void report(void *pvt, FILE *fp, int details)
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 }
 
+/* report an error to various places, just to make sure it is received */
+static void report_error(asynUser *pasynUser, const char* format, ... )
+{
+	va_list ap;
+	char errmsg[256];
+	va_start(ap, format);
+	epicsVsnprintf(errmsg, sizeof(errmsg), format, ap);
+	asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s", errmsg);
+	epicsSnprintf(pasynUser->errorMessage, pasynUser->errorMessageSize, "%s", errmsg); 
+	errlogSevPrintf(errlogMajor, "%s", errmsg);
+	va_end(ap);
+}
+
 static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 {
 	drvPvt *pdrvPvt = (drvPvt *) pvt;
@@ -621,13 +634,14 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	
 	if (pdrvPvt->connected)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s finsUDP:connect port already connected\n", pdrvPvt->portName);
+//		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s finsUDP:connect port already connected\n", pdrvPvt->portName);
+		report_error(pasynUser, "%s finsUDP:connect port already connected\n", pdrvPvt->portName);
 		return (asynError);
 	}
 
 	if (connect(pdrvPvt->fd, (const struct sockaddr*)&pdrvPvt->addr, sizeof(pdrvPvt->addr)) < 0)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "port %s, connect() to %s port %hu with %s.\n", 
+	    report_error(pasynUser, "port %s, connect() to %s port %hu with %s.\n", 
 				pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
 		return (asynError);
 	}
@@ -636,10 +650,12 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	{
 		if (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 4, 1) < 0)
 		{
+		    report_error(pasynUser, "port %s send_fins_header failed", pdrvPvt->portName);
 			return (asynError);
 		}
 		if (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 1) < 0)
 		{
+		    report_error(pasynUser, "port %s recv_fins_header failed", pdrvPvt->portName);
 			return (asynError);
 		}
         errlogSevPrintf(errlogInfo, "%s finsUDP:connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
