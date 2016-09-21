@@ -1011,7 +1011,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 				case FINS_HR_READ_32:
 				case FINS_HR_WRITE_32:
 				{
-					pdrvPvt->message[COM] = IO;
+					pdrvPvt->message[COM] = HR;
 					break;
 				}
 				
@@ -2381,7 +2381,7 @@ static asynStatus ReadFloat64(void *pvt, asynUser *pasynUser, epicsFloat64 *valu
 	}
     *value = value_f;
     
-	asynPrint(pasynUser, ASYN_TRACEIO_DEVICE, "%s: port %s, addr %d, read 1 word.\n", FUNCNAME, pdrvPvt->portName, addr);
+	asynPrint(pasynUser, ASYN_TRACEIO_DEVICE, "%s: port %s, addr %d, read 2 word.\n", FUNCNAME, pdrvPvt->portName, addr);
 
 	return (asynSuccess);
 }
