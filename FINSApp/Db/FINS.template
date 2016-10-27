@@ -408,8 +408,8 @@ record(mbbi, "$(device):PLCTYPE")
 	field(FRSV, "NO_ALARM")
 	field(FVSV, "MINOR")
 	field(SXSV, "NO_ALARM")
-	field(SVST, "NO_ALARM")
-	field(EIST, "NO_ALARM")
+	field(SVSV, "NO_ALARM")
+	field(EISV, "NO_ALARM")
 	field(UNSV, "MINOR")
 }
 
