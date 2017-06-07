@@ -770,6 +770,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 		shutdown(pdrvPvt->fd, SHUT_RDWR);
 		epicsSocketDestroy(pdrvPvt->fd);
 		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+        errlogSevPrintf(errlogInfo, "%s finsUDP:disconnect\n", pdrvPvt->portName);
 	}
 	pdrvPvt->connected = 0;
 	pasynManager->exceptionDisconnect(pasynUser);
@@ -2023,6 +2024,7 @@ static asynStatus socketRead(void *pvt, asynUser *pasynUser, char *data, size_t 
 
 	if (finsSocketRead(pdrvPvt, pasynUser, (void *) data, maxchars, addr, nbytesTransfered, 0) < 0)
 	{
+        adisconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 	
@@ -2093,6 +2095,7 @@ static asynStatus socketWrite(void *pvt, asynUser *pasynUser, const char *data, 
 	
 	if (finsSocketWrite(pdrvPvt, pasynUser, (void *) data, numchars, addr, 0) < 0)
 	{
+        adisconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
