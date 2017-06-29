@@ -658,9 +658,9 @@ static void report(void *pvt, FILE *fp, int details)
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
 	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
-	fprintf(fp, "    PLC IP: %s  Node: %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
+	fprintf(fp, "    PLC IP: %s  Node (DA1): %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
-	fprintf(fp, "    client node: %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
+	fprintf(fp, "    client node (SA1): %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
 }
 
 /* report an error to various places, just to make sure it is received */
