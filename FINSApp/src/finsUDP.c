@@ -258,7 +258,8 @@ typedef struct drvPvt
 } drvPvt;
 
 static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser);
-static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, const unsigned char mres, const unsigned char sres);
+static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, unsigned char mres, 
+                      unsigned char sres, const char* resp);
 
 /*** asynCommon methods ***************************************************************************/
 
@@ -659,6 +660,7 @@ static void report(void *pvt, FILE *fp, int details)
 	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
 	fprintf(fp, "    PLC IP: %s  Node: %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
+	fprintf(fp, "    client node: %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
 }
 
 /* report an error to various places, just to make sure it is received */
@@ -719,7 +721,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		    report_error(pasynUser, "port %s recv_fins_header failed", pdrvPvt->portName);
 			return (asynError);
 		}
-        errlogSevPrintf(errlogInfo, "%s finsUDP:connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
+        errlogSevPrintf(errlogInfo, "%s finsUDP: connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
 		pdrvPvt->client_node = fins_header.extra[0];
 	}
 	else
@@ -1261,7 +1263,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 	if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
 	{
-		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES]);
+		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
 		return (-1);
 	}
 
@@ -1958,7 +1960,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 	if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
 	{
-		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES]);
+		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
 		return (-1);
 	}
 
@@ -3421,14 +3423,23 @@ static const char *error26 = "Command error";
 static const char *error30 = "Access rights error";
 static const char *error40 = "Abort error";
 
-static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, const unsigned char mres, const unsigned char sres)
+static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, unsigned char mres, unsigned char sres, const char* resp)
 {
+    const unsigned char* uresp = (const unsigned char*)resp;
+    if (sres & 0x40)
+    {
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Non-fatal CPU Unit Error Flag\n", name, pdrvPvt->portName);        
+        sres ^= 0x40;
+    }
+    if (sres & 0x80)
+    {
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Fatal CPU Unit Error Flag\n", name, pdrvPvt->portName);
+        sres ^= 0x80;
+    }
 	if (mres & 0x80)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Relay Error Flag\n", name, pdrvPvt->portName);
-		
-		FINSerror(pdrvPvt, pasynUser, name, mres ^ 0x80, sres);
-        return;
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Network Relay Error Flag - network address 0x%02x node address 0x%02x\n", name, pdrvPvt->portName, uresp[0], uresp[1]);
+		mres ^= 0x80;
 	}
 	
 	switch (mres)
