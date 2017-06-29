@@ -3428,6 +3428,7 @@ static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, co
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Relay Error Flag\n", name, pdrvPvt->portName);
 		
 		FINSerror(pdrvPvt, pasynUser, name, mres ^ 0x80, sres);
+        return;
 	}
 	
 	switch (mres)
