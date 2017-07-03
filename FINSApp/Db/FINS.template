@@ -68,6 +68,16 @@ record(ai, "$(device):CPU:STATUS")
 	field(SCAN, "10 second")
 }
 
+# status array
+record(waveform, "$(device):CPU:ARRSTAT")
+{
+	field(DTYP, "asynInt16ArrayIn")
+	field(INP,  "@asyn($(port), 0, 0) FINS_STATUS")
+	field(FTVL, "USHORT")
+	field(SCAN, "10 second")
+	field(NELM, "13")
+}
+
 #---------------------------------------------------------------------------------------------------
 
 # cycle times

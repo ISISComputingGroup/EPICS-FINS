@@ -47,6 +47,7 @@
 		r	FINS_AR_READ
 		r	FINS_IO_READ
 		r	FINS_CLOCK_READ
+		r	FINS_STATUS
 		w	FINS_DM_WRITE
 		w	FINS_AR_WRITE
 		w	FINS_IO_WRITE
@@ -353,6 +354,7 @@ enum FINS_COMMANDS
 	FINS_SET_MULTI_ADDR,
 	FINS_CLR_MULTI,
 	FINS_MODEL,
+    FINS_STATUS,
 	FINS_CPU_STATUS,
 	FINS_CPU_MODE,
 	FINS_CYCLE_TIME_RESET,
@@ -386,6 +388,7 @@ static const char* FINS_COMMANDS_STR[] =
 	"FINS_SET_MULTI_ADDR",
 	"FINS_CLR_MULTI",
 	"FINS_MODEL",
+    "FINS_STATUS",
 	"FINS_CPU_STATUS",
 	"FINS_CPU_MODE",
 	"FINS_CYCLE_TIME_RESET",
@@ -1096,6 +1099,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		
 		case FINS_CPU_STATUS:
 		case FINS_CPU_MODE:
+		case FINS_STATUS:
 		{
 			pdrvPvt->message[MRC] = 0x06;
 			pdrvPvt->message[SRC] = 0x01;
@@ -1441,6 +1445,25 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 			break;
 		}
 
+		case FINS_STATUS:
+		{
+			epicsInt16 *rep = (epicsInt16 *) &pdrvPvt->reply[RESP + 0];
+			epicsInt16 *dat = (epicsInt16 *) data;
+			int i;
+				
+			for (i = 0; i < 13; i++)
+			{
+				*dat++ = BSWAP16(*rep++);
+			}
+
+			if (transfered)
+			{
+				*transfered = 13;
+			}
+			
+			break;
+		}
+
 /* return 3 parameters - epicsInt32 */
 
 		case FINS_CYCLE_TIME:
@@ -1514,7 +1537,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 		case FINS_CLOCK_READ:
 		{
-			unsigned char  *rep = (unsigned char *)  &pdrvPvt->reply[RESP + 2];
+			unsigned char  *rep = (unsigned char *)  &pdrvPvt->reply[RESP + 0];
 			epicsInt16 *dat = (epicsInt16 *) data;
 			int i;
 				
@@ -2430,6 +2453,7 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 		case FINS_IO_READ:
 		case FINS_HR_READ:
 		case FINS_CLOCK_READ:
+		case FINS_STATUS:
 		{
             type = FINS_COMMANDS_STR[pasynUser->reason];
             break;
@@ -2472,6 +2496,17 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 			break;
 		}
 		
+		case FINS_STATUS:
+		{
+			if (nelements != 13)
+			{
+				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, addr %d, FINS_STATUS size != 13.\n", FUNCNAME, pdrvPvt->portName, addr);
+				return (asynError);
+			}
+			
+			break;
+		}
+
 		default:
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, no such command %d.\n", FUNCNAME, pdrvPvt->portName, pasynUser->reason);
@@ -3195,6 +3230,10 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		if (strcmp("FINS_CLOCK_READ", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_CLOCK_READ;
+		}
+		if (strcmp("FINS_STATUS", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_STATUS;
 		}
 		else
 		if (strcmp("FINS_EXPLICIT", drvInfo) == 0)
