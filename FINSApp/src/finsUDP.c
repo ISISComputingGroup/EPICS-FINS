@@ -205,6 +205,12 @@
 	
 #endif
 
+/* convert a Binary Coded Decimal byte (such as returned by CLOCK_READ) into an integer */
+static int bcd2int(unsigned char bcd_byte)
+{
+    return 10 * (bcd_byte >> 4) + (bcd_byte & 0xf);
+}
+
 static const char* socket_errmsg()
 {
 	static char error_message[2048];
@@ -1504,17 +1510,20 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 			break;
 		}
 
+
+
 		case FINS_CLOCK_READ:
 		{
-			epicsInt8  *rep = (epicsInt8 *)  &pdrvPvt->reply[RESP + 0];
+			unsigned char  *rep = (unsigned char *)  &pdrvPvt->reply[RESP + 2];
 			epicsInt16 *dat = (epicsInt16 *) data;
 			int i;
 				
+			/* year (2 digit), month, date, hour, minute, second, day (Sun=0) */
 			for (i = 0; i < 7; i++)
 			{
-				*dat++ = *rep++;
+				*dat++ = bcd2int(*rep++);
 			}
-				
+
 			if (transfered)
 			{
 				*transfered = 7;
