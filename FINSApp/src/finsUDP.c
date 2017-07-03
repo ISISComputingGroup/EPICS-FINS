@@ -721,13 +721,18 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		    report_error(pasynUser, "port %s recv_fins_header failed", pdrvPvt->portName);
 			return (asynError);
 		}
-        errlogSevPrintf(errlogInfo, "%s finsUDP: connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
 		pdrvPvt->client_node = fins_header.extra[0];
+        if (pdrvPvt->node != fins_header.extra[1])
+        {
+            errlogSevPrintf(errlogMajor, "%s finsUDP: response PLC node %d not same as previously configured value %d\n", pdrvPvt->portName, fins_header.extra[1], pdrvPvt->node);
+            // should we do      pdrvPvt->node = fins_header.extra[1];     ???         
+        }
 	}
 	else
 	{
 		pdrvPvt->client_node = FINS_SOURCE_ADDR;
 	}
+    errlogSevPrintf(errlogInfo, "%s finsUDP: connect client node %d server node %d\n", pdrvPvt->portName, pdrvPvt->client_node, pdrvPvt->node);
     if (1) /* at the moment assume local */
     {
 	    pdrvPvt->sna = 0x00; /* local */
@@ -3438,7 +3443,7 @@ static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, un
     }
 	if (mres & 0x80)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Network Relay Error Flag - network address 0x%02x node address 0x%02x\n", name, pdrvPvt->portName, uresp[0], uresp[1]);
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Network Relay Error Flag - from network address 0x%02x node address 0x%02x when trying to contact node 0x%02x\n", name, pdrvPvt->portName, uresp[0], uresp[1], pdrvPvt->node);
 		mres ^= 0x80;
 	}
 	
