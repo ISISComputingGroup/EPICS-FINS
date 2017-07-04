@@ -3231,6 +3231,7 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		{
 			pasynUser->reason = FINS_CLOCK_READ;
 		}
+        else
 		if (strcmp("FINS_STATUS", drvInfo) == 0)
 		{
 			pasynUser->reason = FINS_STATUS;
