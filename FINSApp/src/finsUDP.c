@@ -1447,8 +1447,8 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 		case FINS_STATUS:
 		{
-			epicsInt16 *rep = (epicsInt16 *) &pdrvPvt->reply[RESP + 0];
-			epicsInt16 *dat = (epicsInt16 *) data;
+			epicsUInt16 *rep = (epicsUInt16 *) &pdrvPvt->reply[RESP + 0];
+			epicsUInt16 *dat = (epicsUInt16 *) data;
 			int i;
 				
 			for (i = 0; i < 13; i++)
@@ -3462,15 +3462,15 @@ static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 
 static const char *error01 = "Local node error";
 static const char *error02 = "Destination node error";
-static const char *error03 = "Communications controller error";
-static const char *error04 = "Not executable";
-static const char *error05 = "Routing error";
+static const char *error03 = "Controller error";
+static const char *error04 = "Service unsupported";
+static const char *error05 = "Routing table error";
 static const char *error10 = "Command format error";
 static const char *error11 = "Parameter error";
 static const char *error20 = "Read not possible";
 static const char *error21 = "Write not possible";
 static const char *error22 = "Not executable in curent mode";
-static const char *error23 = "No unit";
+static const char *error23 = "No such device";
 static const char *error24 = "Start/Stop not possible";
 static const char *error25 = "Unit error";
 static const char *error26 = "Command error";
