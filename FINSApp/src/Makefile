@@ -11,6 +11,8 @@ LIBRARY_IOC += FINS
 # xxxRecord.dbd will be installed into <top>/dbd
 DBD += finsUDP.dbd
 
+USR_CFLAGS_WIN32 += -D_WINSOCK_DEPRECATED_NO_WARNINGS
+
 # The following are compiled and added to the support library
 FINS_SRCS += finsUDP.c
 #FINS_SRCS += finsHostlink.c
