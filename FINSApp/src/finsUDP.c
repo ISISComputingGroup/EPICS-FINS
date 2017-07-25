@@ -1149,7 +1149,6 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	
 	if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, send_fins_header() failed.\n", FUNCNAME, pdrvPvt->portName); 
         return (-1);
 	}
 	
@@ -1211,7 +1210,6 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		errno = 0;		
 		if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
 		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recv_fins_header() failed.\n", FUNCNAME, pdrvPvt->portName);		    
             return (-1);
 		}
 		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
@@ -1849,7 +1847,6 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 	
 	if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, send_fins_header() failed.\n", FUNCNAME, pdrvPvt->portName);
  		return (-1);
 	}
 	if (send(pdrvPvt->fd, pdrvPvt->message, sendlen, 0) != sendlen)
@@ -1909,7 +1906,6 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 	    if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
 	    {
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recv_fins_header() failed.\n", FUNCNAME, pdrvPvt->portName);
 		    return (-1);
 	    }
 		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
