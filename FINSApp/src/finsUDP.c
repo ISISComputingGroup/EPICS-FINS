@@ -226,8 +226,12 @@ typedef struct drvPvt
 	epicsMutexId mutexId;
 
 	int connected;
+    int error_count;
 	SOCKET fd;
 	int tcp_protocol; /* 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
+
+    /* need to keep a copy of connect asynUser for use in disconnect */
+    asynUser *user_connect;
 	
 	const char *portName;
 	asynInterface common;
@@ -402,6 +406,8 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	pdrvPvt = callocMustSucceed(1, sizeof(drvPvt), FUNCNAME);
 	pdrvPvt->portName = epicsStrDup(portName);
 	pdrvPvt->connected = 0;
+	pdrvPvt->error_count = 0;
+	pdrvPvt->user_connect = NULL;
     pdrvPvt->fd = -1;
 	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
 	{
@@ -659,6 +665,7 @@ static void report(void *pvt, FILE *fp, int details)
 	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
 	fprintf(fp, "    PLC IP: %s  Node: %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
+	fprintf(fp, "    Communication error count: %d\n", pdrvPvt->error_count);
 }
 
 /* report an error to various places, just to make sure it is received */
@@ -674,8 +681,6 @@ static void report_error(asynUser *pasynUser, const char* format, ... )
 	va_end(ap);
 }
 
-static asynUser *pasynUser_connect = NULL;
-
 static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 {
 	drvPvt *pdrvPvt = (drvPvt *) pvt;
@@ -689,6 +694,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:connect addr %d\n", pdrvPvt->portName, addr);
 	
+    /* autoconnect will have -1 as addr */
 	if (addr >= 0)
 	{
 		pasynManager->exceptionConnect(pasynUser);
@@ -738,15 +744,31 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	    pdrvPvt->dna = 0x02; /* needs to be agreed with PLC */
     }
 	pdrvPvt->connected = 1;
-    pasynUser_connect = pasynUser;
+	pdrvPvt->error_count = 0;
+    pdrvPvt->user_connect = pasynUser; /* save for later usage in adisconnect */
 	pasynManager->exceptionConnect(pasynUser);
 	return (asynSuccess);
 }
 
-/* need to disconnect with same asyn addr that connected */
-static asynStatus force_disconnect(void *pvt, asynUser *pasynUser)
+/* need to disconnect with same asyn addr that connected i.e -1 */
+static asynStatus maybe_disconnect(void *pvt, asynUser *pasynUser)
 {
-    return adisconnect(pvt, pasynUser_connect);    
+    static const int MAX_ERROR_COUNT = 5;
+ 	drvPvt *pdrvPvt = (drvPvt *) pvt;
+    ++(pdrvPvt->error_count);
+    if (pdrvPvt->error_count <= MAX_ERROR_COUNT)
+    {
+        return asynSuccess;        
+    }
+    if (pdrvPvt->user_connect != NULL)
+    {
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: more than %d communication errors so forcing disconnect\n", pdrvPvt->portName, MAX_ERROR_COUNT);
+        return adisconnect(pvt, pdrvPvt->user_connect);
+    }
+    else
+    {
+        return asynError;
+    }        
 }
 
 static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
@@ -2038,7 +2060,7 @@ static asynStatus socketRead(void *pvt, asynUser *pasynUser, char *data, size_t 
 
 	if (finsSocketRead(pdrvPvt, pasynUser, (void *) data, maxchars, addr, nbytesTransfered, 0) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 	
@@ -2115,7 +2137,7 @@ static asynStatus socketWrite(void *pvt, asynUser *pasynUser, const char *data, 
 	
 	if (finsSocketWrite(pdrvPvt, pasynUser, (void *) data, numchars, addr, 0) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2224,7 +2246,7 @@ static asynStatus ReadInt32(void *pvt, asynUser *pasynUser, epicsInt32 *value)
 
 	if (finsSocketRead(pdrvPvt, pasynUser, (void *) value, 1, addr, NULL, sizeof(epicsUInt32)) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2316,7 +2338,7 @@ static asynStatus WriteInt32(void *pvt, asynUser *pasynUser, epicsInt32 value)
 
 			if (finsSocketWrite(pdrvPvt, pasynUser, (void *) &value, sizeof(epicsInt16) / sizeof(epicsInt16), addr, sizeof(epicsUInt32)) < 0)
 			{
-                force_disconnect(pdrvPvt, pasynUser);
+                maybe_disconnect(pdrvPvt, pasynUser);
 				return (asynError);
 			}
 			
@@ -2339,7 +2361,7 @@ static asynStatus WriteInt32(void *pvt, asynUser *pasynUser, epicsInt32 value)
 
 			if (finsSocketWrite(pdrvPvt, pasynUser, (void *) &value, sizeof(epicsInt32) / sizeof(epicsInt16), addr, sizeof(epicsUInt32)) < 0)
 			{
-                force_disconnect(pdrvPvt, pasynUser);
+                maybe_disconnect(pdrvPvt, pasynUser);
 				return (asynError);
 			}
 			
@@ -2421,7 +2443,7 @@ static asynStatus ReadFloat64(void *pvt, asynUser *pasynUser, epicsFloat64 *valu
 
 	if (finsSocketRead(pdrvPvt, pasynUser, (void *)&value_f, 2, addr, NULL, sizeof(float)) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
     *value = value_f;
@@ -2519,7 +2541,7 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 	if (finsSocketRead(pdrvPvt, pasynUser, (char *) value, nelements, addr, nIn, sizeof(epicsUInt16)) < 0)
 	{
 		*nIn = 0;
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2600,7 +2622,7 @@ static asynStatus WriteInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *va
 
 	if (finsSocketWrite(pdrvPvt, pasynUser, (void *) value, nelements * sizeof(epicsInt16) / sizeof(epicsInt16), addr, sizeof(epicsUInt16)) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2696,7 +2718,7 @@ static asynStatus ReadInt32Array(void *pvt, asynUser *pasynUser, epicsInt32 *val
 	if (finsSocketRead(pdrvPvt, pasynUser, (void *) value, nelements, addr, nIn, sizeof(epicsUInt32)) < 0)
 	{
 		*nIn = 0;
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2777,7 +2799,7 @@ static asynStatus WriteInt32Array(void *pvt, asynUser *pasynUser, epicsInt32 *va
 
 	if (finsSocketWrite(pdrvPvt, pasynUser, (void *) value, nelements * sizeof(epicsInt32) / sizeof(epicsInt16), addr, sizeof(epicsUInt32)) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2865,7 +2887,7 @@ static asynStatus ReadFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32 
 	if (finsSocketRead(pdrvPvt, pasynUser, (void *) value, nelements, addr, nIn, sizeof(epicsInt32)) < 0)
 	{
 		*nIn = 0;
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
@@ -2946,7 +2968,7 @@ static asynStatus WriteFloat32Array(void *pvt, asynUser *pasynUser, epicsFloat32
 
 	if (finsSocketWrite(pdrvPvt, pasynUser, (void *) value, nelements * sizeof(epicsFloat32) / sizeof(epicsInt16), addr, sizeof(epicsInt32)) < 0)
 	{
-        force_disconnect(pdrvPvt, pasynUser);
+        maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
 	}
 
