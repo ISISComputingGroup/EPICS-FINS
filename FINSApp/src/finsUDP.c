@@ -47,6 +47,7 @@
 		r	FINS_AR_READ
 		r	FINS_IO_READ
 		r	FINS_CLOCK_READ
+		r	FINS_STATUS
 		w	FINS_DM_WRITE
 		w	FINS_AR_WRITE
 		w	FINS_IO_WRITE
@@ -205,6 +206,12 @@
 	
 #endif
 
+/* convert a Binary Coded Decimal byte (such as returned by CLOCK_READ) into an integer */
+static int bcd2int(unsigned char bcd_byte)
+{
+    return 10 * (bcd_byte >> 4) + (bcd_byte & 0xf);
+}
+
 static const char* socket_errmsg()
 {
 	static char error_message[2048];
@@ -262,7 +269,8 @@ typedef struct drvPvt
 } drvPvt;
 
 static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser);
-static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, const unsigned char mres, const unsigned char sres);
+static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, unsigned char mres, 
+                      unsigned char sres, const char* resp);
 
 /*** asynCommon methods ***************************************************************************/
 
@@ -350,6 +358,7 @@ enum FINS_COMMANDS
 	FINS_SET_MULTI_ADDR,
 	FINS_CLR_MULTI,
 	FINS_MODEL,
+    FINS_STATUS,
 	FINS_CPU_STATUS,
 	FINS_CPU_MODE,
 	FINS_CYCLE_TIME_RESET,
@@ -383,6 +392,7 @@ static const char* FINS_COMMANDS_STR[] =
 	"FINS_SET_MULTI_ADDR",
 	"FINS_CLR_MULTI",
 	"FINS_MODEL",
+    "FINS_STATUS",
 	"FINS_CPU_STATUS",
 	"FINS_CPU_MODE",
 	"FINS_CYCLE_TIME_RESET",
@@ -663,8 +673,9 @@ static void report(void *pvt, FILE *fp, int details)
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
 	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
-	fprintf(fp, "    PLC IP: %s  Node: %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
+	fprintf(fp, "    PLC IP: %s  Node (DA1): %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
+	fprintf(fp, "    client node (SA1): %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
 	fprintf(fp, "    Communication error count: %d\n", pdrvPvt->error_count);
 }
 
@@ -726,13 +737,18 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		    report_error(pasynUser, "port %s connect:recv_fins_header failed", pdrvPvt->portName);
 			return (asynError);
 		}
-        errlogSevPrintf(errlogInfo, "%s finsUDP:connect client node %d server node %d\n", pdrvPvt->portName, fins_header.extra[0], fins_header.extra[1]);
 		pdrvPvt->client_node = fins_header.extra[0];
+        if (pdrvPvt->node != fins_header.extra[1])
+        {
+            errlogSevPrintf(errlogMajor, "%s finsUDP: response PLC node %d not same as previously configured value %d\n", pdrvPvt->portName, fins_header.extra[1], pdrvPvt->node);
+            // should we do      pdrvPvt->node = fins_header.extra[1];     ???         
+        }
 	}
 	else
 	{
 		pdrvPvt->client_node = FINS_SOURCE_ADDR;
 	}
+    errlogSevPrintf(errlogInfo, "%s finsUDP: connect client node %d server node %d\n", pdrvPvt->portName, pdrvPvt->client_node, pdrvPvt->node);
     if (1) /* at the moment assume local */
     {
 	    pdrvPvt->sna = 0x00; /* local */
@@ -1114,6 +1130,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 		
 		case FINS_CPU_STATUS:
 		case FINS_CPU_MODE:
+		case FINS_STATUS:
 		{
 			pdrvPvt->message[MRC] = 0x06;
 			pdrvPvt->message[SRC] = 0x01;
@@ -1292,7 +1309,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
 	if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
 	{
-		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES]);
+		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
 		return (-1);
 	}
 
@@ -1459,6 +1476,25 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 			break;
 		}
 
+		case FINS_STATUS:
+		{
+			epicsUInt16 *rep = (epicsUInt16 *) &pdrvPvt->reply[RESP + 0];
+			epicsUInt16 *dat = (epicsUInt16 *) data;
+			int i;
+				
+			for (i = 0; i < 13; i++)
+			{
+				*dat++ = BSWAP16(*rep++);
+			}
+
+			if (transfered)
+			{
+				*transfered = 13;
+			}
+			
+			break;
+		}
+
 /* return 3 parameters - epicsInt32 */
 
 		case FINS_CYCLE_TIME:
@@ -1528,17 +1564,20 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 			break;
 		}
 
+
+
 		case FINS_CLOCK_READ:
 		{
-			epicsInt8  *rep = (epicsInt8 *)  &pdrvPvt->reply[RESP + 0];
+			unsigned char  *rep = (unsigned char *)  &pdrvPvt->reply[RESP + 0];
 			epicsInt16 *dat = (epicsInt16 *) data;
 			int i;
 				
+			/* year (2 digit), month, date, hour, minute, second, day (Sun=0) */
 			for (i = 0; i < 7; i++)
 			{
-				*dat++ = *rep++;
+				*dat++ = bcd2int(*rep++);
 			}
-				
+
 			if (transfered)
 			{
 				*transfered = 7;
@@ -1989,7 +2028,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 	if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
 	{
-		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES]);
+		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
 		return (-1);
 	}
 
@@ -2487,6 +2526,7 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 		case FINS_IO_READ:
 		case FINS_HR_READ:
 		case FINS_CLOCK_READ:
+		case FINS_STATUS:
 		{
             type = FINS_COMMANDS_STR[pasynUser->reason];
             break;
@@ -2529,6 +2569,17 @@ static asynStatus ReadInt16Array(void *pvt, asynUser *pasynUser, epicsInt16 *val
 			break;
 		}
 		
+		case FINS_STATUS:
+		{
+			if (nelements != 13)
+			{
+				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, addr %d, FINS_STATUS size != 13.\n", FUNCNAME, pdrvPvt->portName, addr);
+				return (asynError);
+			}
+			
+			break;
+		}
+
 		default:
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, no such command %d.\n", FUNCNAME, pdrvPvt->portName, pasynUser->reason);
@@ -3289,6 +3340,11 @@ asynStatus drvUserCreate(void *pvt, asynUser *pasynUser, const char *drvInfo, co
 		{
 			pasynUser->reason = FINS_CLOCK_READ;
 		}
+        else
+		if (strcmp("FINS_STATUS", drvInfo) == 0)
+		{
+			pasynUser->reason = FINS_STATUS;
+		}
 		else
 		if (strcmp("FINS_EXPLICIT", drvInfo) == 0)
 		{
@@ -3515,28 +3571,38 @@ static int recv_fins_header(finsTCPHeader* fins_header, SOCKET fd, const char* p
 
 static const char *error01 = "Local node error";
 static const char *error02 = "Destination node error";
-static const char *error03 = "Communications controller error";
-static const char *error04 = "Not executable";
-static const char *error05 = "Routing error";
+static const char *error03 = "Controller error";
+static const char *error04 = "Service unsupported";
+static const char *error05 = "Routing table error";
 static const char *error10 = "Command format error";
 static const char *error11 = "Parameter error";
 static const char *error20 = "Read not possible";
 static const char *error21 = "Write not possible";
 static const char *error22 = "Not executable in curent mode";
-static const char *error23 = "No unit";
+static const char *error23 = "No such device";
 static const char *error24 = "Start/Stop not possible";
 static const char *error25 = "Unit error";
 static const char *error26 = "Command error";
 static const char *error30 = "Access rights error";
 static const char *error40 = "Abort error";
 
-static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, const unsigned char mres, const unsigned char sres)
+static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, unsigned char mres, unsigned char sres, const char* resp)
 {
+    const unsigned char* uresp = (const unsigned char*)resp;
+    if (sres & 0x40)
+    {
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Non-fatal CPU Unit Error Flag\n", name, pdrvPvt->portName);        
+        sres ^= 0x40;
+    }
+    if (sres & 0x80)
+    {
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Fatal CPU Unit Error Flag\n", name, pdrvPvt->portName);
+        sres ^= 0x80;
+    }
 	if (mres & 0x80)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Relay Error Flag\n", name, pdrvPvt->portName);
-		
-		FINSerror(pdrvPvt, pasynUser, name, mres ^ 0x80, sres);
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, Network Relay Error Flag - from network address 0x%02x node address 0x%02x when trying to contact node 0x%02x\n", name, pdrvPvt->portName, uresp[0], uresp[1], pdrvPvt->node);
+		mres ^= 0x80;
 	}
 	
 	switch (mres)
