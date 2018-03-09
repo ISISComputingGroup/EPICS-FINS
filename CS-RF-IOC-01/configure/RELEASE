@@ -1,5 +1,6 @@
 ASYN=$(SUPPORT)/asyn/master
 FINS=$(SUPPORT)/FINS/master
+ONCRPC=$(SUPPORT)/oncrpc/master
 
 # optional extra local definitions here
 -include $(TOP)/configure/RELEASE.private
