@@ -121,13 +121,13 @@
 
 /* PLC memory  types */
 /* note: the bit version of these are 0x80 lower, we shift these using "address_shift" if needed */
-#define DM	0x82 /* DM area, word */
-#define IO	0xB0 /* CIO area, word */
-#define WR  0xB1 /* Work area, word */
-#define HR  0xB2 /* Holding area, word */
-#define AR	0xB3 /* Auxiliary area, word */
-#define CT	0x89 /* CNT, counter area, word */  
-#define TM  0x89 /* TIM, timer area, word */
+#define DM	0x82 /* DM Data Memory area, word */
+#define IO	0xB0 /* CIO Channel IO area, word */
+#define WR  0xB1 /* WR Work area, word */
+#define HR  0xB2 /* HR Holding area, word */
+#define AR	0xB3 /* AR Auxiliary Relay area, word */
+#define CT	0x89 /* CNT, Counter area, word */  
+#define TM  0x89 /* TIM, Timer area, word */
 
 /* offsets into the FINS UDP packet */
 
@@ -236,7 +236,7 @@ typedef struct drvPvt
     int error_count;
 	SOCKET fd;
 	int tcp_protocol; /* 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
-
+    int simulate; /* in simulation mode? */
     /* need to keep a copy of connect asynUser for use in disconnect */
     asynUser *user_connect;
 	
@@ -405,7 +405,7 @@ static const char* FINS_COMMANDS_STR[] =
 	"FINS_EXPLICIT"
 };
 
-int finsUDPInit(const char *portName, const char *address, const char* protocol)
+int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate)
 {
 	static const char *FUNCNAME = "finsUDPInit";
 	drvPvt *pdrvPvt;
@@ -418,6 +418,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 	pdrvPvt->connected = 0;
 	pdrvPvt->error_count = 0;
 	pdrvPvt->user_connect = NULL;
+	pdrvPvt->simulate = simulate;
     pdrvPvt->fd = -1;
 	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
 	{
@@ -461,7 +462,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol)
 		return (-1);
 	}
 
-	errlogSevPrintf(errlogInfo, "%s: using address %s protocol %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
+	errlogSevPrintf(errlogInfo, "%s: using address %s protocol %s simulation mode %s\n", FUNCNAME, address, (pdrvPvt->tcp_protocol ? "TCP" : "UDP"), (pdrvPvt->simulate ? "YES" : "NO") );
 	if ( !(pdrvPvt->tcp_protocol) )
 	{
 	
@@ -672,7 +673,7 @@ static void report(void *pvt, FILE *fp, int details)
 	
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
-	fprintf(fp, "%s: connected %s protocol %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP") );
+	fprintf(fp, "%s: connected %s protocol %s simulation mode %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP"), (pdrvPvt->simulate ? "Yes" : "No") );
 	fprintf(fp, "    PLC IP: %s  Node (DA1): %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 	fprintf(fp, "    client node (SA1): %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
@@ -718,36 +719,43 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 		return (asynError);
 	}
 
-	if (connect(pdrvPvt->fd, (const struct sockaddr*)&pdrvPvt->addr, sizeof(pdrvPvt->addr)) < 0)
-	{
-	    report_error(pasynUser, "port %s, connect() to %s port %hu with %s.\n", 
-				pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
-		return (asynError);
-	}
-	
-	if (pdrvPvt->tcp_protocol)
-	{
-		if (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 4, 1) < 0)
-		{
-		    report_error(pasynUser, "port %s connect:send_fins_header failed", pdrvPvt->portName);
-			return (asynError);
-		}
-		if (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 1) < 0)
-		{
-		    report_error(pasynUser, "port %s connect:recv_fins_header failed", pdrvPvt->portName);
-			return (asynError);
-		}
-		pdrvPvt->client_node = fins_header.extra[0];
-        if (pdrvPvt->node != fins_header.extra[1])
+    if (!(pdrvPvt->simulate))
+    {
+        if (connect(pdrvPvt->fd, (const struct sockaddr*)&pdrvPvt->addr, sizeof(pdrvPvt->addr)) < 0)
         {
-            errlogSevPrintf(errlogMajor, "%s finsUDP: response PLC node %d not same as previously configured value %d\n", pdrvPvt->portName, fins_header.extra[1], pdrvPvt->node);
-            // should we do      pdrvPvt->node = fins_header.extra[1];     ???         
+            report_error(pasynUser, "port %s, connect() to %s port %hu with %s.\n", 
+                    pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
+            return (asynError);
         }
-	}
-	else
-	{
-		pdrvPvt->client_node = FINS_SOURCE_ADDR;
-	}
+        
+        if (pdrvPvt->tcp_protocol)
+        {
+            if (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 4, 1) < 0)
+            {
+                report_error(pasynUser, "port %s connect:send_fins_header failed", pdrvPvt->portName);
+                return (asynError);
+            }
+            if (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 1) < 0)
+            {
+                report_error(pasynUser, "port %s connect:recv_fins_header failed", pdrvPvt->portName);
+                return (asynError);
+            }
+            pdrvPvt->client_node = fins_header.extra[0];
+            if (pdrvPvt->node != fins_header.extra[1])
+            {
+                errlogSevPrintf(errlogMajor, "%s finsUDP: response PLC node %d not same as previously configured value %d\n", pdrvPvt->portName, fins_header.extra[1], pdrvPvt->node);
+                // should we do      pdrvPvt->node = fins_header.extra[1];     ???         
+            }
+        }
+        else
+        {
+            pdrvPvt->client_node = FINS_SOURCE_ADDR;
+        }
+    }
+    else
+    {
+        pdrvPvt->client_node = FINS_SOURCE_ADDR;
+    }
     errlogSevPrintf(errlogInfo, "%s finsUDP: connect client node %d server node %d\n", pdrvPvt->portName, pdrvPvt->client_node, pdrvPvt->node);
     if (1) /* at the moment assume local */
     {
@@ -811,7 +819,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 		return (asynError);
 	}
 	pdrvPvt->connected = 0;
-	if ( pdrvPvt->tcp_protocol )
+	if (  pdrvPvt->tcp_protocol && !pdrvPvt->simulate )
 	{
 	    /* TODO: send a fins shutdown packet */
 		shutdown(pdrvPvt->fd, SHUT_RDWR);
@@ -845,6 +853,10 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 	int bytes;
 	fd_set reply_fds;
 	struct timeval no_wait;
+    if (pdrvPvt->simulate)
+    {
+        return;
+    }
 	do
 	{			
 /* Winsock lacks MSG_DONWAIT so we need to use select() instead, which should work on both Linux and Windows
@@ -1174,145 +1186,150 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 	
 	pdrvPvt->message[SID] = pdrvPvt->sid++;
 
-/* flush any old data */
+	if (pdrvPvt->simulate)
+    {
+        recvlen = RESP + nelements * asynSize;
+    }
+    else
+    {
+    /* flush any old data */
 
-	flushUDP("finsSocketRead", pdrvPvt, pasynUser);
+        flushUDP("finsSocketRead", pdrvPvt, pasynUser);
 
-	asynPrintIO(pasynUser, ASYN_TRACEIO_DRIVER, pdrvPvt->message, sendlen, "%s: port %s, sending %d bytes.\n", FUNCNAME, pdrvPvt->portName, sendlen);
+        asynPrintIO(pasynUser, ASYN_TRACEIO_DRIVER, pdrvPvt->message, sendlen, "%s: port %s, sending %d bytes.\n", FUNCNAME, pdrvPvt->portName, sendlen);
 
-	epicsTimeGetCurrent(&ets);
-	
-/* send request */
+        epicsTimeGetCurrent(&ets);
+        
+    /* send request */
 
-	errno = 0;
-	
-	if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
-	{
-        return (-1);
-	}
-	
-	if (send(pdrvPvt->fd, pdrvPvt->message, sendlen, 0) != sendlen)
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, send() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
-		return (-1);
-	}
-
-/* receive reply with timeout */
-
-	{
-		fd_set rfds;
-		struct timeval tv;
-		
-		FD_ZERO(&rfds);
-		FD_SET(pdrvPvt->fd, &rfds);
-		
-	/* timeout */
-
-		if (pasynUser->timeout > 0.0)
-		{
-			tv.tv_sec = (long) pasynUser->timeout;
-			tv.tv_usec = 0;
-		}
-		else
-		{
-			tv.tv_sec = FINS_TIMEOUT;
-			tv.tv_usec = 0;
-		}
-
-		errno = 0;
-		
-		switch (select((int)pdrvPvt->fd + 1, &rfds, NULL, NULL, &tv))  // nfds parameter is ignored on Windows, so cast to avoid warning 
-		{
-			case -1:
-			{
-				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
-	
-				return (-1);
-				break;
-			}
-			
-			case 0:
-			{
-				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() timeout.\n", FUNCNAME, pdrvPvt->portName);
-
-				return (-1);
-				break;
-			}
-			
-			default:
-			{
-				break;
-			}
-		}
-	}
-
-		errno = 0;		
-		if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
-		{
+        errno = 0;
+        
+        if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
+        {
             return (-1);
-		}
-		if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
-		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
-			return (-1);
-		}
-		expectedlen = fins_header.length - 8;
-		if ( pdrvPvt->tcp_protocol && (recvlen != expectedlen) )
-		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
-			return (-1);
-		}
-		
-	epicsTimeGetCurrent(&ete);
-	
-	{
-		const epicsFloat32 diff = (epicsFloat32)epicsTimeDiffInSeconds(&ete, &ets);
-	
-		if (diff > pdrvPvt->tMax) pdrvPvt->tMax = diff;
-		if (diff < pdrvPvt->tMin) pdrvPvt->tMin = diff;
-		
-		pdrvPvt->tLast = diff;
-	}
-	
-	asynPrintIO(pasynUser, ASYN_TRACEIO_DRIVER, pdrvPvt->reply, recvlen, "%s: port %s, received %d bytes.\n", FUNCNAME, pdrvPvt->portName, recvlen);
+        }
+        
+        if (send(pdrvPvt->fd, pdrvPvt->message, sendlen, 0) != sendlen)
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, send() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
+            return (-1);
+        }
 
-/* Illegal response length check */
-	
-	if (recvlen < MIN_RESP_LEN)
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length too small.\n", FUNCNAME, pdrvPvt->portName);
-		return (-1);
-	}
-	if ((pdrvPvt->message[DNA] != pdrvPvt->reply[SNA]) || (pdrvPvt->message[DA1] != pdrvPvt->reply[SA1]) || (pdrvPvt->message[DA2] != pdrvPvt->reply[SA2]))
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received.\n", FUNCNAME, pdrvPvt->portName);
-		return (-1);
-	}
+    /* receive reply with timeout */
 
-/* SID check */
-	
-	if (pdrvPvt->message[SID] != pdrvPvt->reply[SID])
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, SID %d sent, wrong SID %d received.\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->message[SID], pdrvPvt->reply[SID]);
-		return (-1);
-	}
+        {
+            fd_set rfds;
+            struct timeval tv;
+            
+            FD_ZERO(&rfds);
+            FD_SET(pdrvPvt->fd, &rfds);
+            
+        /* timeout */
 
-/* command check */
+            if (pasynUser->timeout > 0.0)
+            {
+                tv.tv_sec = (long) pasynUser->timeout;
+                tv.tv_usec = 0;
+            }
+            else
+            {
+                tv.tv_sec = FINS_TIMEOUT;
+                tv.tv_usec = 0;
+            }
 
-	if ((pdrvPvt->reply[MRC] != pdrvPvt->message[MRC]) || (pdrvPvt->reply[SRC] != pdrvPvt->message[SRC]))
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong MRC/SRC received.\n", FUNCNAME, pdrvPvt->portName);
-		return (-1);
-	}
+            errno = 0;
+            
+            switch (select((int)pdrvPvt->fd + 1, &rfds, NULL, NULL, &tv))  // nfds parameter is ignored on Windows, so cast to avoid warning 
+            {
+                case -1:
+                {
+                    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() failed with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
+        
+                    return (-1);
+                    break;
+                }
+                
+                case 0:
+                {
+                    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() timeout.\n", FUNCNAME, pdrvPvt->portName);
 
-/* check response code */
+                    return (-1);
+                    break;
+                }
+                
+                default:
+                {
+                    break;
+                }
+            }
+        }
 
-	if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
-	{
-		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
-		return (-1);
-	}
+            errno = 0;		
+            if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
+            {
+                return (-1);
+            }
+            if ((recvlen = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0)) < 0)
+            {
+                asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
+                return (-1);
+            }
+            expectedlen = fins_header.length - 8;
+            if ( pdrvPvt->tcp_protocol && (recvlen != expectedlen) )
+            {
+                asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
+                return (-1);
+            }
+        epicsTimeGetCurrent(&ete);
+        
+        {
+            const epicsFloat32 diff = (epicsFloat32)epicsTimeDiffInSeconds(&ete, &ets);
+        
+            if (diff > pdrvPvt->tMax) pdrvPvt->tMax = diff;
+            if (diff < pdrvPvt->tMin) pdrvPvt->tMin = diff;
+            
+            pdrvPvt->tLast = diff;
+        }
+        
+        asynPrintIO(pasynUser, ASYN_TRACEIO_DRIVER, pdrvPvt->reply, recvlen, "%s: port %s, received %d bytes.\n", FUNCNAME, pdrvPvt->portName, recvlen);
 
+    /* Illegal response length check */
+        
+        if (recvlen < MIN_RESP_LEN)
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length too small.\n", FUNCNAME, pdrvPvt->portName);
+            return (-1);
+        }
+        if ((pdrvPvt->message[DNA] != pdrvPvt->reply[SNA]) || (pdrvPvt->message[DA1] != pdrvPvt->reply[SA1]) || (pdrvPvt->message[DA2] != pdrvPvt->reply[SA2]))
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received.\n", FUNCNAME, pdrvPvt->portName);
+            return (-1);
+        }
+
+    /* SID check */
+        
+        if (pdrvPvt->message[SID] != pdrvPvt->reply[SID])
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, SID %d sent, wrong SID %d received.\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->message[SID], pdrvPvt->reply[SID]);
+            return (-1);
+        }
+
+    /* command check */
+
+        if ((pdrvPvt->reply[MRC] != pdrvPvt->message[MRC]) || (pdrvPvt->reply[SRC] != pdrvPvt->message[SRC]))
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong MRC/SRC received.\n", FUNCNAME, pdrvPvt->portName);
+            return (-1);
+        }
+
+    /* check response code */
+
+        if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
+        {
+            FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
+            return (-1);
+        }
+    }
 /* extract data */
 
 	switch (pasynUser->reason)
@@ -1893,6 +1910,11 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 	}
 		
 	pdrvPvt->message[SID] = pdrvPvt->sid++;
+
+    if (pdrvPvt->simulate)
+    {
+        return 0;
+    }
 
 /* flush any old data */
 
@@ -3714,13 +3736,14 @@ static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, un
 static const iocshArg finsUDPInitArg0 = { "portName", iocshArgString };
 static const iocshArg finsUDPInitArg1 = { "IP address", iocshArgString };
 static const iocshArg finsUDPInitArg2 = { "protocol", iocshArgString }; // TCP or UDP
+static const iocshArg finsUDPInitArg3 = { "simulate", iocshArgInt }; 
 
-static const iocshArg *finsUDPInitArgs[] = { &finsUDPInitArg0, &finsUDPInitArg1, &finsUDPInitArg2 };
-static const iocshFuncDef finsUDPInitFuncDef = { "finsUDPInit", 3, finsUDPInitArgs};
+static const iocshArg *finsUDPInitArgs[] = { &finsUDPInitArg0, &finsUDPInitArg1, &finsUDPInitArg2, &finsUDPInitArg3 };
+static const iocshFuncDef finsUDPInitFuncDef = { "finsUDPInit", 4, finsUDPInitArgs};
 
 static void finsUDPInitCallFunc(const iocshArgBuf *args)
 {
-	finsUDPInit(args[0].sval, args[1].sval, args[2].sval);
+	finsUDPInit(args[0].sval, args[1].sval, args[2].sval, args[3].ival);
 }
 
 static void finsUDPRegister(void)
