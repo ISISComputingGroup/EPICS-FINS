@@ -405,6 +405,22 @@ static const char* FINS_COMMANDS_STR[] =
 	"FINS_EXPLICIT"
 };
 
+/* returns INVALID_SOCKET on error */
+static SOCKET createTCPSocket()
+{
+    int enable = 1;
+	SOCKET s = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+    setsockopt(s, SOL_SOCKET, SO_REUSEADDR, (char*)&enable, sizeof(enable));
+    return s;
+}
+
+static void destroySocket(SOCKET* s)
+{
+	shutdown(*s, SHUT_RDWR);
+    epicsSocketDestroy(*s);
+    *s = INVALID_SOCKET;
+}
+
 int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate)
 {
 	static const char *FUNCNAME = "finsUDPInit";
@@ -419,7 +435,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt->error_count = 0;
 	pdrvPvt->user_connect = NULL;
 	pdrvPvt->simulate = simulate;
-    pdrvPvt->fd = -1;
+    pdrvPvt->fd = INVALID_SOCKET;
 	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
 	{
 		pdrvPvt->tcp_protocol = 1;
@@ -444,13 +460,13 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	
 	if ( pdrvPvt->tcp_protocol )
 	{
-		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+		pdrvPvt->fd = createTCPSocket();
 	}
 	else
 	{
 		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_DGRAM, 0);
 	}
-	if (pdrvPvt->fd < 0)
+	if (pdrvPvt->fd == INVALID_SOCKET)
 	{
 		errlogPrintf("%s: Can't create socket: %s", FUNCNAME, socket_errmsg());
 		return (-1);
@@ -458,7 +474,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	if (aToIPAddr(address, fins_port, &pdrvPvt->addr) < 0)
 	{
 		errlogPrintf("%s: Bad IP address %s\n", FUNCNAME, address);
-		epicsSocketDestroy(pdrvPvt->fd);
+		destroySocket(&(pdrvPvt->fd));
 		return (-1);
 	}
 
@@ -482,7 +498,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 		if (bind(pdrvPvt->fd, (struct sockaddr *) &addr, addrlen) < 0)
 		{
 			errlogPrintf("%s: bind failed with %s.\n", FUNCNAME, socket_errmsg());
-			epicsSocketDestroy(pdrvPvt->fd);
+			destroySocket(&(pdrvPvt->fd));
 			return (-1);
 		}
 		
@@ -500,7 +516,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 			if (getsockname(pdrvPvt->fd, (struct sockaddr *) &name, &namelen) < 0)
 			{
 				errlogPrintf("%s: getsockname failed with %s.\n", FUNCNAME, socket_errmsg());
-				epicsSocketDestroy(pdrvPvt->fd);
+				destroySocket(&(pdrvPvt->fd));
 				return (-1);
 			}
 			
@@ -822,9 +838,8 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	if (  pdrvPvt->tcp_protocol && !pdrvPvt->simulate )
 	{
 	    /* TODO: send a fins shutdown packet */
-		shutdown(pdrvPvt->fd, SHUT_RDWR);
-		epicsSocketDestroy(pdrvPvt->fd);
-		pdrvPvt->fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+		destroySocket(&(pdrvPvt->fd));
+		pdrvPvt->fd = createTCPSocket();
 	}
     errlogSevPrintf(errlogInfo, "%s finsUDP:disconnect\n", pdrvPvt->portName);
 	pasynManager->exceptionDisconnect(pasynUser);
@@ -838,7 +853,7 @@ static asynStatus flushIt(void *pvt, asynUser *pasynUser)
 	
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s flush\n", pdrvPvt->portName);
 
-	if (pdrvPvt->fd >= 0)
+	if (pdrvPvt->fd != INVALID_SOCKET)
 	{
 		flushUDP("flushIt", pdrvPvt, pasynUser);
 	}
@@ -3793,7 +3808,7 @@ int finsTest(char *address, char* protocol)
 	
 	if (tcp_protocol)
 	{
-	    fd = epicsSocketCreate(PF_INET, SOCK_STREAM, 0);
+	    fd = createTCPSocket();
 	}
 	else
 	{
@@ -3819,7 +3834,7 @@ int finsTest(char *address, char* protocol)
 		if (bind(fd, (struct sockaddr *) &addr, addrlen) < 0)
 		{
 			errlogPrintf("finsTest: bind %s\n", socket_errmsg());
-			epicsSocketDestroy(fd);
+			destroySocket(&fd);
 			return (-1);
 		}
 	}
@@ -3852,7 +3867,7 @@ int finsTest(char *address, char* protocol)
 	if (aToIPAddr(address, FINS_UDP_PORT, &addr) < 0)
 	{
 		errlogPrintf("finsTest: Bad IP address %s\n", address);
-		epicsSocketDestroy(fd);
+		destroySocket(&fd);
 		return (-1);
 	}
 
@@ -3865,7 +3880,7 @@ int finsTest(char *address, char* protocol)
 	if (connect(fd, (const struct sockaddr*)&addr, sizeof(addr)) < 0)
 	{
 		errlogPrintf("connect() to %s port %hu with %s.\n", inet_ntoa(addr.sin_addr), ntohs(addr.sin_port), socket_errmsg());
-		epicsSocketDestroy(fd);
+		destroySocket(&fd);
 		return (-1);
 	}
 
@@ -3878,7 +3893,7 @@ int finsTest(char *address, char* protocol)
 		}
 		if (recv_fins_header(&fins_header, fd, "finsTest", NULL, 1) < 0)
 		{
-			epicsSocketDestroy(fd);
+            destroySocket(&fd);
 			return (-1);
 		}
 		errlogSevPrintf(errlogInfo, "Client node %d server node %d\n", fins_header.extra[0], fins_header.extra[1]);	
