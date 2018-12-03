@@ -762,6 +762,9 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
         {
             report_error(pasynUser, "port %s, connect() to %s port %hu with %s.\n", 
                     pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
+            /* have had a case of PLC disconnecting and socket going bad - it should get remade in disconnect() */
+            destroySocket(&(pdrvPvt->fd));
+            pdrvPvt->fd = createTCPSocket();
             return (asynError);
         }
         
