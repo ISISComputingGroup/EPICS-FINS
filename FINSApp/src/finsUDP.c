@@ -416,7 +416,28 @@ static SOCKET createTCPSocket()
 
 static void destroySocket(SOCKET* s)
 {
-	shutdown(*s, SHUT_RDWR);
+    /* first attempt to initiate a graceful shutdown of the connection */
+    struct timeval tv;
+    fd_set rfds;
+    char buffer[256];
+    int nbytes = 0, n = 0;
+    if (shutdown(*s, SHUT_WR) == 0) /* signal no further writes to remote connection */
+    {
+        /* wait for any pending data, we check for bytes with 2 second timeout and stop on a timeout, error or zero bytes read */ 
+        do 
+        {
+		tv.tv_sec = 2;
+		tv.tv_usec = 0;
+            nbytes += n;
+		    FD_ZERO(&rfds);
+		    FD_SET(*s, &rfds);
+        } while (select((int)(*s) + 1, &rfds, NULL, NULL, &tv) > 0 && (n = recv(*s, buffer, sizeof(buffer), 0)) > 0);
+        errlogSevPrintf(errlogInfo, "destroySocket: graceful shutdown completed with %d bytes received\n", nbytes);
+    }
+    else
+    {
+        errlogSevPrintf(errlogInfo, "destroySocket: graceful shutdown not possible: %s\n", socket_errmsg());
+    }
     epicsSocketDestroy(*s);
     *s = INVALID_SOCKET;
 }
