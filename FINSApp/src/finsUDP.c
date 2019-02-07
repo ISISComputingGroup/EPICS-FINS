@@ -234,6 +234,7 @@ typedef struct drvPvt
 
 	int connected;
     int error_count;
+    epicsTimeStamp last_error;
 	SOCKET fd;
 	int tcp_protocol; /* 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
     int simulate; /* in simulation mode? */
@@ -442,6 +443,12 @@ static void destroySocket(SOCKET* s)
     *s = INVALID_SOCKET;
 }
 
+static void remakeTCPSocket(SOCKET* s)
+{
+    destroySocket(s);
+    *s = createTCPSocket();    
+}
+
 int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate)
 {
 	static const char *FUNCNAME = "finsUDPInit";
@@ -454,6 +461,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt->portName = epicsStrDup(portName);
 	pdrvPvt->connected = 0;
 	pdrvPvt->error_count = 0;
+    epicsTimeGetCurrent(&(pdrvPvt->last_error));
 	pdrvPvt->user_connect = NULL;
 	pdrvPvt->simulate = simulate;
     pdrvPvt->fd = INVALID_SOCKET;
@@ -742,6 +750,8 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	if (status != asynSuccess) return status;
 	
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:connect addr %d\n", pdrvPvt->portName, addr);
+
+	errlogSevPrintf(errlogInfo, "%s finsUDP:trying connect addr %d\n", pdrvPvt->portName, addr);
 	
     /* autoconnect will have -1 as addr */
 	if (addr >= 0)
@@ -763,8 +773,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
             report_error(pasynUser, "port %s, connect() to %s port %hu with %s.\n", 
                     pdrvPvt->portName, inet_ntoa(pdrvPvt->addr.sin_addr), ntohs(pdrvPvt->addr.sin_port), socket_errmsg());
             /* have had a case of PLC disconnecting and socket going bad - it should get remade in disconnect() */
-            destroySocket(&(pdrvPvt->fd));
-            pdrvPvt->fd = createTCPSocket();
+            remakeTCPSocket(&(pdrvPvt->fd));
             return (asynError);
         }
         
@@ -773,11 +782,15 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
             if (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 4, 1) < 0)
             {
                 report_error(pasynUser, "port %s connect:send_fins_header failed", pdrvPvt->portName);
+                /* have had a case of PLC disconnecting and socket going bad - it should get remade in disconnect() */
+                remakeTCPSocket(&(pdrvPvt->fd));
                 return (asynError);
             }
             if (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 1) < 0)
             {
                 report_error(pasynUser, "port %s connect:recv_fins_header failed", pdrvPvt->portName);
+                /* have had a case of PLC disconnecting and socket going bad - it should get remade in disconnect() */
+                remakeTCPSocket(&(pdrvPvt->fd));
                 return (asynError);
             }
             pdrvPvt->client_node = fins_header.extra[0];
@@ -817,16 +830,24 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 /* need to disconnect with same asyn addr that connected i.e -1 */
 static asynStatus maybe_disconnect(void *pvt, asynUser *pasynUser)
 {
-    static const int MAX_ERROR_COUNT = 5;
+    static const int MAX_ERROR_COUNT = 20;
  	drvPvt *pdrvPvt = (drvPvt *) pvt;
+    epicsTimeStamp now;
+    epicsTimeGetCurrent(&now);
+    /* reset error counter if last error over 5 minutes ago */
+    if ( epicsTimeDiffInSeconds(&now, &(pdrvPvt->last_error)) > 300.0 )
+    {
+        pdrvPvt->error_count = 0;
+    }
     ++(pdrvPvt->error_count);
+    pdrvPvt->last_error = now;
     if (pdrvPvt->error_count <= MAX_ERROR_COUNT)
     {
         return asynSuccess;        
     }
     if (pdrvPvt->user_connect != NULL)
     {
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: more than %d communication errors so forcing disconnect\n", pdrvPvt->portName, MAX_ERROR_COUNT);
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: %d > %d communication errors so forcing disconnect\n", pdrvPvt->portName, pdrvPvt->error_count, MAX_ERROR_COUNT);
         return adisconnect(pvt, pdrvPvt->user_connect);
     }
     else
@@ -846,7 +867,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	if (status != asynSuccess) return status;
 	
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:disconnect addr %d\n", pdrvPvt->portName, addr);
-
+    errlogSevPrintf(errlogInfo, "%s finsUDP:trying disconnect addr %d\n", pdrvPvt->portName, addr);
 	if (addr >= 0)
 	{
 		pasynManager->exceptionDisconnect(pasynUser);
@@ -859,11 +880,11 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 		return (asynError);
 	}
 	pdrvPvt->connected = 0;
+	pdrvPvt->user_connect = NULL;
 	if (  pdrvPvt->tcp_protocol && !pdrvPvt->simulate )
 	{
 	    /* TODO: send a fins shutdown packet */
-		destroySocket(&(pdrvPvt->fd));
-		pdrvPvt->fd = createTCPSocket();
+		remakeTCPSocket(&(pdrvPvt->fd));
 	}
     errlogSevPrintf(errlogInfo, "%s finsUDP:disconnect\n", pdrvPvt->portName);
 	pasynManager->exceptionDisconnect(pasynUser);
@@ -903,7 +924,8 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
  */
 		FD_ZERO(&reply_fds);
 		FD_SET(pdrvPvt->fd, &reply_fds);
-		no_wait.tv_sec = no_wait.tv_usec = 0;
+		no_wait.tv_sec = 0;
+        no_wait.tv_usec = 0 * 1000;
 		if ( select((int)pdrvPvt->fd + 1, &reply_fds, NULL, NULL, &no_wait) > 0 ) // nfds parameter is ignored on Windows, so cast to avoid warning
 		{
 			bytes = socket_recv(pdrvPvt->fd, pdrvPvt->reply, FINS_MAX_MSG, 0);
