@@ -833,10 +833,12 @@ static asynStatus maybe_disconnect(void *pvt, asynUser *pasynUser)
     static const int MAX_ERROR_COUNT = 20;
  	drvPvt *pdrvPvt = (drvPvt *) pvt;
     epicsTimeStamp now;
+	double tdiff;
     epicsTimeGetCurrent(&now);
     /* reset error counter if last error over 5 minutes ago */
-    if ( epicsTimeDiffInSeconds(&now, &(pdrvPvt->last_error)) > 300.0 )
+    if ( (tdiff = epicsTimeDiffInSeconds(&now, &(pdrvPvt->last_error))) > 300.0 )
     {
+	    printf("Last error %f seconds ago so resetting error counter from %d to 0\n", tdiff, pdrvPvt->error_count); 
         pdrvPvt->error_count = 0;
     }
     ++(pdrvPvt->error_count);
