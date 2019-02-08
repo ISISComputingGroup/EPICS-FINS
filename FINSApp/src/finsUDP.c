@@ -750,8 +750,6 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
 	if (status != asynSuccess) return status;
 	
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:connect addr %d\n", pdrvPvt->portName, addr);
-
-	errlogSevPrintf(errlogInfo, "%s finsUDP:trying connect addr %d\n", pdrvPvt->portName, addr);
 	
     /* autoconnect will have -1 as addr */
 	if (addr >= 0)
@@ -869,7 +867,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	if (status != asynSuccess) return status;
 	
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:disconnect addr %d\n", pdrvPvt->portName, addr);
-    errlogSevPrintf(errlogInfo, "%s finsUDP:trying disconnect addr %d\n", pdrvPvt->portName, addr);
+
 	if (addr >= 0)
 	{
 		pasynManager->exceptionDisconnect(pasynUser);
