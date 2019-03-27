@@ -862,19 +862,24 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	asynStatus status;
 	int addr;
 	
-	status = pasynManager->getAddr(pasynUser, &addr);
+    if (pasynUser != pdrvPvt->user_connect)
+    {
+	    status = pasynManager->getAddr(pasynUser, &addr);
     
-	if (status != asynSuccess) return status;
+	    if (status != asynSuccess) return status;
 	
-	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:disconnect addr %d\n", pdrvPvt->portName, addr);
+	    asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:disconnect addr %d\n", pdrvPvt->portName, addr);
 
-	if (addr >= 0)
-	{
-		pasynManager->exceptionDisconnect(pasynUser);
-		return (asynSuccess);
-	}
+	    if (addr >= 0)
+	    {
+		    pasynManager->exceptionDisconnect(pasynUser);
+		    return (asynSuccess);
+	    }
+		return (asynError);
+    }
+	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:full disconnect\n", pdrvPvt->portName);
 	
-	if (!pdrvPvt->connected)
+	if (!pdrvPvt->connected || pdrvPvt->user_connect == NULL)
 	{
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s finsUDP:disconnect port not connected\n", pdrvPvt->portName);
 		return (asynError);
