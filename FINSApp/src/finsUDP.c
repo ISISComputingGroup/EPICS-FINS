@@ -723,6 +723,8 @@ static void report(void *pvt, FILE *fp, int details)
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 	fprintf(fp, "    client node (SA1): %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
 	fprintf(fp, "    Communication error count: %d\n", pdrvPvt->error_count);
+	fprintf(fp, "    User connect: %s\n", (pdrvPvt->user_connect != NULL ? "YES" : "NO"));
+	fprintf(fp, "              fd: %d\n", (int)pdrvPvt->fd);
 }
 
 /* report an error to various places, just to make sure it is received */
@@ -1317,7 +1319,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
                 
                 case 0:
                 {
-                    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() timeout.\n", FUNCNAME, pdrvPvt->portName);
+                    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() timeout after %lu seconds.\n", FUNCNAME, pdrvPvt->portName, (unsigned long)tv.tv_sec);
 
                     return (-1);
                     break;
@@ -2040,7 +2042,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 			
 			case 0:
 			{
-				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() timeout.\n", FUNCNAME, pdrvPvt->portName);
+				asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, select() timeout after %lu seconds.\n", FUNCNAME, pdrvPvt->portName, (unsigned long)tv.tv_sec);
 				
 				return (-1);
 				break;
