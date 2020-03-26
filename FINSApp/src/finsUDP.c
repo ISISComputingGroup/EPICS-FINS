@@ -3810,15 +3810,15 @@ static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, un
 static const iocshArg finsUDPInitArg0 = { "portName", iocshArgString };
 static const iocshArg finsUDPInitArg1 = { "IP address", iocshArgString };
 static const iocshArg finsUDPInitArg2 = { "protocol", iocshArgString }; // TCP or UDP
-static const iocshArg finsUDPInitArg3 = { "node", iocshArgString };
-static const iocshArg finsUDPInitArg4 = { "simulate", iocshArgInt };
+static const iocshArg finsUDPInitArg3 = { "simulate", iocshArgInt };
+static const iocshArg finsUDPInitArg4 = { "node", iocshArgString };
 
 static const iocshArg *finsUDPInitArgs[] = { &finsUDPInitArg0, &finsUDPInitArg1, &finsUDPInitArg2, &finsUDPInitArg3 , &finsUDPInitArg4 };
 static const iocshFuncDef finsUDPInitFuncDef = { "finsUDPInit", 5, finsUDPInitArgs};
 
 static void finsUDPInitCallFunc(const iocshArgBuf *args)
 {
-	finsUDPInit(args[0].sval, args[1].sval, args[2].sval, args[3].sval, args[4].ival);
+	finsUDPInit(args[0].sval, args[1].sval, args[2].sval, args[3].ival, args[4].sval);
 }
 
 static void finsUDPRegister(void)
