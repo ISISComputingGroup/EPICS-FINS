@@ -553,14 +553,14 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 		}
 	}
 		
-	/* node address is last byte of IP address */
-	if(strcmp(node, "") == 0)
+	if ( (node != NULL) && (strlen(node) > 0) )
 	{
-		pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
+		pdrvPvt->node = atoi(node);
 	}
 	else
 	{
-		pdrvPvt->node = atoi(node);
+		/* node address is last byte of IP address */
+		pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
 	}
 			
 	errlogSevPrintf(errlogInfo, "%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
