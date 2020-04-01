@@ -560,7 +560,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	}
 	else
 	{
-		pdrvPvt->node = 58;
+		pdrvPvt->node = atoi(node);
 	}
 			
 	errlogSevPrintf(errlogInfo, "%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
