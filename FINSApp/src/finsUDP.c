@@ -449,7 +449,7 @@ static void remakeTCPSocket(SOCKET* s)
     *s = createTCPSocket();    
 }
 
-int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate)
+int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate, const char* node)
 {
 	static const char *FUNCNAME = "finsUDPInit";
 	drvPvt *pdrvPvt;
@@ -553,9 +553,15 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 		}
 	}
 		
-	/* node address is last byte of IP address */
-		
-	pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
+	if ( (node != NULL) && (strlen(node) > 0) )
+	{
+		pdrvPvt->node = atoi(node);
+	}
+	else
+	{
+		/* node address is last byte of IP address */
+		pdrvPvt->node = ntohl(pdrvPvt->addr.sin_addr.s_addr) & 0xff;
+	}
 			
 	errlogSevPrintf(errlogInfo, "%s: PLC node %d\n", FUNCNAME, pdrvPvt->node);
 	pdrvPvt->tMin = 100.0;
@@ -3804,14 +3810,15 @@ static void FINSerror(drvPvt *pdrvPvt, asynUser *pasynUser, const char *name, un
 static const iocshArg finsUDPInitArg0 = { "portName", iocshArgString };
 static const iocshArg finsUDPInitArg1 = { "IP address", iocshArgString };
 static const iocshArg finsUDPInitArg2 = { "protocol", iocshArgString }; // TCP or UDP
-static const iocshArg finsUDPInitArg3 = { "simulate", iocshArgInt }; 
+static const iocshArg finsUDPInitArg3 = { "simulate", iocshArgInt };
+static const iocshArg finsUDPInitArg4 = { "node", iocshArgString };
 
-static const iocshArg *finsUDPInitArgs[] = { &finsUDPInitArg0, &finsUDPInitArg1, &finsUDPInitArg2, &finsUDPInitArg3 };
-static const iocshFuncDef finsUDPInitFuncDef = { "finsUDPInit", 4, finsUDPInitArgs};
+static const iocshArg *finsUDPInitArgs[] = { &finsUDPInitArg0, &finsUDPInitArg1, &finsUDPInitArg2, &finsUDPInitArg3 , &finsUDPInitArg4 };
+static const iocshFuncDef finsUDPInitFuncDef = { "finsUDPInit", 5, finsUDPInitArgs};
 
 static void finsUDPInitCallFunc(const iocshArgBuf *args)
 {
-	finsUDPInit(args[0].sval, args[1].sval, args[2].sval, args[3].ival);
+	finsUDPInit(args[0].sval, args[1].sval, args[2].sval, args[3].ival, args[4].sval);
 }
 
 static void finsUDPRegister(void)
