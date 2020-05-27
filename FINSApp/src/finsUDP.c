@@ -236,7 +236,7 @@ typedef struct drvPvt
     int error_count;
     epicsTimeStamp last_error;
 	SOCKET fd;
-	int tcp_protocol; /* 1 if using tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
+	int tcp_protocol; /* 2 if using TCP with no FINS header (test mode), 1 if using normal tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
     int simulate; /* in simulation mode? */
     /* need to keep a copy of connect asynUser for use in disconnect */
     asynUser *user_connect;
@@ -449,6 +449,7 @@ static void remakeTCPSocket(SOCKET* s)
     *s = createTCPSocket();    
 }
 
+/* address can be of form "host:port" or just "host", if port is not given uses default (FINS_TCP_PORT or FINS_UDP_PORT) */
 int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate, const char* node)
 {
 	static const char *FUNCNAME = "finsUDPInit";
@@ -465,11 +466,17 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt->user_connect = NULL;
 	pdrvPvt->simulate = simulate;
     pdrvPvt->fd = INVALID_SOCKET;
-	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
-	{
+	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCPNOHEAD") )
+    {
+        printf("Using special TCPNOHEAD test protocol (TCP connection, UDP format)\n");
+		pdrvPvt->tcp_protocol = 2;
+		fins_port = FINS_TCP_PORT;
+    }
+	else if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCP") )
+    {
 		pdrvPvt->tcp_protocol = 1;
 		fins_port = FINS_TCP_PORT;
-	}
+    }
 	else /* default is UDP */
 	{
 		pdrvPvt->tcp_protocol = 0;
@@ -478,7 +485,6 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	
 	pasynOctet = callocMustSucceed(1, sizeof(asynOctet), FUNCNAME);
 	
-
 	status = pasynManager->registerPort(portName, ASYN_MULTIDEVICE | ASYN_CANBLOCK, 1, 0, 0);
 
 	if (status != asynSuccess)
@@ -783,7 +789,7 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
             return (asynError);
         }
         
-        if (pdrvPvt->tcp_protocol)
+        if (pdrvPvt->tcp_protocol == 1)
         {
             if (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 4, 1) < 0)
             {
@@ -1278,7 +1284,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
         errno = 0;
         
-        if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
+        if ( pdrvPvt->tcp_protocol == 1 && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
         {
             return (-1);
         }
@@ -1339,7 +1345,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
         }
 
             errno = 0;		
-            if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
+            if ( pdrvPvt->tcp_protocol == 1 && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
             {
                 return (-1);
             }
@@ -1349,7 +1355,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
                 return (-1);
             }
             expectedlen = fins_header.length - 8;
-            if ( pdrvPvt->tcp_protocol && (recvlen != expectedlen) )
+            if ( pdrvPvt->tcp_protocol == 1 && (recvlen != expectedlen) )
             {
                 asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
                 return (-1);
@@ -2002,7 +2008,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 	errno = 0;
 	
-	if ( pdrvPvt->tcp_protocol && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
+	if ( pdrvPvt->tcp_protocol == 1 && (send_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, sendlen, 0) < 0) )
 	{
  		return (-1);
 	}
@@ -2061,7 +2067,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 		}
 	}
 
-	    if ( pdrvPvt->tcp_protocol && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
+	    if ( pdrvPvt->tcp_protocol == 1 && (recv_fins_header(&fins_header, pdrvPvt->fd, pdrvPvt->portName, pasynUser, 0) < 0) )
 	    {
 		    return (-1);
 	    }
@@ -2071,7 +2077,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 			return (-1);
 		}
 		expectedlen = fins_header.length - 8;
-		if ( pdrvPvt->tcp_protocol && (recvlen != expectedlen) )
+		if ( pdrvPvt->tcp_protocol == 1 && (recvlen != expectedlen) )
 		{
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
 			return (-1);
