@@ -471,7 +471,9 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt->user_connect = NULL;
 	pdrvPvt->simulate = simulate;
     pdrvPvt->fd = INVALID_SOCKET;
-    
+
+    /* Type of mode where it uses TCP, but without the TCP specific FINS header. 
+     * Meant to be used for IOC testing.*/
 	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCPNOHEAD") )
     {
         printf("Using special TCPNOHEAD test protocol (TCP connection, UDP format)\n");
