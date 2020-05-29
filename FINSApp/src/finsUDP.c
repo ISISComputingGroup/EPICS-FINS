@@ -236,7 +236,11 @@ typedef struct drvPvt
     int error_count;
     epicsTimeStamp last_error;
 	SOCKET fd;
-	int tcp_protocol; /* 2 if using TCP with no FINS header (test mode), 1 if using normal tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
+
+	/* 2 if using TCP with no FINS header (test mode), 1 if using normal 
+	 * tcp(SOCK_STREAM), 0 if udp(SOCK_DGRAM) */
+	int tcp_protocol; 
+
     int simulate; /* in simulation mode? */
     /* need to keep a copy of connect asynUser for use in disconnect */
     asynUser *user_connect;
@@ -449,7 +453,8 @@ static void remakeTCPSocket(SOCKET* s)
     *s = createTCPSocket();    
 }
 
-/* address can be of form "host:port" or just "host", if port is not given uses default (FINS_TCP_PORT or FINS_UDP_PORT) */
+/* address can be of form "host:port" or just "host", if port is not given uses
+ * default (FINS_TCP_PORT or FINS_UDP_PORT) */
 int finsUDPInit(const char *portName, const char *address, const char* protocol, int simulate, const char* node)
 {
 	static const char *FUNCNAME = "finsUDPInit";
@@ -466,6 +471,7 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt->user_connect = NULL;
 	pdrvPvt->simulate = simulate;
     pdrvPvt->fd = INVALID_SOCKET;
+    
 	if ( (protocol != NULL) && !epicsStrCaseCmp(protocol, "TCPNOHEAD") )
     {
         printf("Using special TCPNOHEAD test protocol (TCP connection, UDP format)\n");
