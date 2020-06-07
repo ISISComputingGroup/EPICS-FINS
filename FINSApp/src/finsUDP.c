@@ -1385,12 +1385,12 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
         
         if (recvlen < MIN_RESP_LEN)
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length too small.\n", FUNCNAME, pdrvPvt->portName);
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length %d too small.\n", FUNCNAME, pdrvPvt->portName, recvlen);
             return (-1);
         }
         if ((pdrvPvt->message[DNA] != pdrvPvt->reply[SNA]) || (pdrvPvt->message[DA1] != pdrvPvt->reply[SA1]) || (pdrvPvt->message[DA2] != pdrvPvt->reply[SA2]))
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received.\n", FUNCNAME, pdrvPvt->portName);
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received. Expected reply SNA/SA1/SA2=%d/%d/%d but received %d/%d/%d\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->message[DNA], pdrvPvt->message[DA1], pdrvPvt->message[DA2], pdrvPvt->reply[SNA], pdrvPvt->reply[SA1], pdrvPvt->reply[SA2]);
             return (-1);
         }
 
@@ -1406,7 +1406,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 
         if ((pdrvPvt->reply[MRC] != pdrvPvt->message[MRC]) || (pdrvPvt->reply[SRC] != pdrvPvt->message[SRC]))
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong MRC/SRC received.\n", FUNCNAME, pdrvPvt->portName);
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong MRC/SRC received. %d/%d != %d/%d\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->reply[MRC], pdrvPvt->reply[SRC],pdrvPvt->message[MRC], pdrvPvt->message[SRC]);
             return (-1);
         }
 
@@ -2108,31 +2108,31 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 	
 	if (recvlen < MIN_RESP_LEN)
 	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length too small.\n", FUNCNAME, pdrvPvt->portName);
+		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, receive length too small %d.\n", FUNCNAME, pdrvPvt->portName, recvlen);
 		return (-1);
 	}
 	
-	if ((pdrvPvt->message[DNA] != pdrvPvt->reply[SNA]) || (pdrvPvt->message[DA1] != pdrvPvt->reply[SA1]) || (pdrvPvt->message[DA2] != pdrvPvt->reply[SA2]))
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received.\n", FUNCNAME, pdrvPvt->portName);
-		return (-1);
-	}
+    if ((pdrvPvt->message[DNA] != pdrvPvt->reply[SNA]) || (pdrvPvt->message[DA1] != pdrvPvt->reply[SA1]) || (pdrvPvt->message[DA2] != pdrvPvt->reply[SA2]))
+    {
+        asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, illegal source address received. Expected reply SNA/SA1/SA2=%d/%d/%d but received %d/%d/%d\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->message[DNA], pdrvPvt->message[DA1], pdrvPvt->message[DA2], pdrvPvt->reply[SNA], pdrvPvt->reply[SA1], pdrvPvt->reply[SA2]);
+        return (-1);
+    }
 
 /* SID check */
 	
-	if (pdrvPvt->message[SID] != pdrvPvt->reply[SID])
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong SID received.\n", FUNCNAME, pdrvPvt->portName);
-		return (-1);
-	}
+    if (pdrvPvt->message[SID] != pdrvPvt->reply[SID])
+    {
+        asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, SID %d sent, wrong SID %d received.\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->message[SID], pdrvPvt->reply[SID]);
+        return (-1);
+    }
 
 /* command check */
 
-	if ((pdrvPvt->reply[MRC] != pdrvPvt->message[MRC]) || (pdrvPvt->reply[SRC] != pdrvPvt->message[SRC]))
-	{
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong MRC/SRC received.\n", FUNCNAME, pdrvPvt->portName);
-		return (-1);
-	}
+    if ((pdrvPvt->reply[MRC] != pdrvPvt->message[MRC]) || (pdrvPvt->reply[SRC] != pdrvPvt->message[SRC]))
+    {
+        asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, wrong MRC/SRC received. %d/%d != %d/%d\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->reply[MRC], pdrvPvt->reply[SRC],pdrvPvt->message[MRC], pdrvPvt->message[SRC]);
+        return (-1);
+    }
 
 /* check response code */
 
