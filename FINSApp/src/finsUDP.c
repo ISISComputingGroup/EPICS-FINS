@@ -1362,11 +1362,14 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
                 asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
                 return (-1);
             }
-            expectedlen = fins_header.length - 8;
-            if ( pdrvPvt->tcp_protocol == 1 && (recvlen != expectedlen) )
+            if ( pdrvPvt->tcp_protocol == 1 )
             {
-                asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
-                return (-1);
+                expectedlen = fins_header.length - 8;
+                if ( recvlen != expectedlen )
+                {
+                    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
+                    return (-1);
+                }
             }
         epicsTimeGetCurrent(&ete);
         
@@ -2084,11 +2087,14 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() with %s.\n", FUNCNAME, pdrvPvt->portName, socket_errmsg());
 			return (-1);
 		}
-		expectedlen = fins_header.length - 8;
-		if ( pdrvPvt->tcp_protocol == 1 && (recvlen != expectedlen) )
-		{
-			asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
-			return (-1);
+		if ( pdrvPvt->tcp_protocol == 1 )
+        {
+		    expectedlen = fins_header.length - 8;
+            if ( recvlen != expectedlen )
+		    {
+			    asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, recvfrom() incorrect size %d != %d.\n", FUNCNAME, pdrvPvt->portName, recvlen, expectedlen);
+			    return (-1);
+            }
 		}		
 
 	epicsTimeGetCurrent(&ete);
