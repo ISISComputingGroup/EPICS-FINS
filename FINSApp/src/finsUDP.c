@@ -462,7 +462,13 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	asynStatus status;
 	asynOctet *pasynOctet;
 	int fins_port;
+	static int first_call = 1;
 	
+	if (first_call)
+	{
+	    first_call = 0;
+	    osiSockAttach();
+	}	
 	pdrvPvt = callocMustSucceed(1, sizeof(drvPvt), FUNCNAME);
 	pdrvPvt->portName = epicsStrDup(portName);
 	pdrvPvt->connected = 0;
