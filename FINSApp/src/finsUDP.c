@@ -995,6 +995,7 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, const size_t nelements, epicsUInt16 address, size_t *transfered, size_t asynSize)
 {
 	static const char *FUNCNAME = "finsSocketRead";
+    int FINS_IGNORE_NONFATAL_CPU =  (getenv("FINS_IGNORE_NONFATAL_CPU") != NULL ? atoi(getenv("FINS_IGNORE_NONFATAL_CPU")) : 0);
 	int recvlen, sendlen = 0;
 	unsigned expectedlen;
     finsTCPHeader fins_header;
@@ -1420,8 +1421,11 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
         }
 
     /* check response code */
-
-        if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
+        if (FINS_IGNORE_NONFATAL_CPU && (pdrvPvt->reply[MRES] == 0x00) && (pdrvPvt->reply[SRES] == 0x40))
+        {
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s ignoring Non-fatal CPU Unit Error Flag 0x0/0x0", FUNCNAME, pdrvPvt->portName);
+        }
+        else if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
         {
             FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
             return (-1);
@@ -1717,6 +1721,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
 static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *data, size_t nwords, epicsUInt16 address, size_t asynSize)
 {
 	static const char *FUNCNAME = "finsSocketWrite";
+    int FINS_IGNORE_NONFATAL_CPU =  (getenv("FINS_IGNORE_NONFATAL_CPU") != NULL ? atoi(getenv("FINS_IGNORE_NONFATAL_CPU")) : 0);
 	int recvlen, sendlen;
 	unsigned expectedlen;
     finsTCPHeader fins_header;
@@ -2148,7 +2153,11 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
 /* check response code */
 
-	if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
+    if (FINS_IGNORE_NONFATAL_CPU && (pdrvPvt->reply[MRES] == 0x00) && (pdrvPvt->reply[SRES] == 0x40))
+    {
+        asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s ignoring Non-fatal CPU Unit Error Flag 0x0/0x0", FUNCNAME, pdrvPvt->portName);
+    }
+	else if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
 	{
 		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
 		return (-1);
