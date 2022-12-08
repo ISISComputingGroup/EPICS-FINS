@@ -235,6 +235,9 @@ typedef struct drvPvt
 	int connected;
     int error_count;
     unsigned long num_reads;
+    unsigned long num_writes;
+    unsigned long num_reads_total;
+    unsigned long num_writes_total;
     epicsTimeStamp last_error;
 	SOCKET fd;
 
@@ -472,6 +475,9 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt->portName = epicsStrDup(portName);
 	pdrvPvt->connected = 0;
 	pdrvPvt->num_reads = 0;
+	pdrvPvt->num_writes = 0;
+	pdrvPvt->num_reads_total = 0;
+	pdrvPvt->num_writes_total = 0;
 	pdrvPvt->error_count = 0;
     epicsTimeGetCurrent(&(pdrvPvt->last_error));
 	pdrvPvt->simulate = simulate;
@@ -744,7 +750,8 @@ static void report(void *pvt, FILE *fp, int details)
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
 	fprintf(fp, "%s: connected %s protocol %s simulation mode %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP"), (pdrvPvt->simulate ? "Yes" : "No") );
-	fprintf(fp, "    Number of reads: %lu\n", pdrvPvt->num_reads);
+	fprintf(fp, "    This connection number of reads: %lu  writes: %lu\n", pdrvPvt->num_reads, pdrvPvt->num_writes);
+	fprintf(fp, "    Since IOC start number of reads: %lu  writes: %lu\n", pdrvPvt->num_reads_total, pdrvPvt->num_writes_total);
 	fprintf(fp, "    PLC IP: %s  Node (DA1): %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 	fprintf(fp, "    client node (SA1): %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
@@ -914,7 +921,7 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 		return (asynError);
 	}
 	pdrvPvt->connected = 0;
-    pdrvPvt->num_reads = 0;
+    pdrvPvt->num_reads = pdrvPvt->num_writes = 0;
 	if (  pdrvPvt->tcp_protocol && !pdrvPvt->simulate )
 	{
 	    /* TODO: send a fins shutdown packet */
@@ -1008,6 +1015,7 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
     bit_number = (user_data & 0xff);
 
     ++(pdrvPvt->num_reads);
+    ++(pdrvPvt->num_reads_total);
 
 /* initialise header */
 
@@ -1736,7 +1744,10 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
     memcpy(&user_data, &(pasynUser->userData), sizeof(user_data));
     address_shift = (user_data >> 8);
     bit_number = (user_data & 0xff);
-	
+
+    ++(pdrvPvt->num_writes);
+    ++(pdrvPvt->num_writes_total);
+
 /* initialise header */
 
 	pdrvPvt->message[ICF] = 0x80;
