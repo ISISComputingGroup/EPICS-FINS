@@ -234,6 +234,10 @@ typedef struct drvPvt
 
 	int connected;
     int error_count;
+    unsigned long num_reads;
+    unsigned long num_writes;
+    unsigned long num_reads_total;
+    unsigned long num_writes_total;
     epicsTimeStamp last_error;
 	SOCKET fd;
 
@@ -242,8 +246,6 @@ typedef struct drvPvt
 	int tcp_protocol; 
 
     int simulate; /* in simulation mode? */
-    /* need to keep a copy of connect asynUser for use in disconnect */
-    asynUser *user_connect;
 	
 	const char *portName;
 	asynInterface common;
@@ -472,9 +474,12 @@ int finsUDPInit(const char *portName, const char *address, const char* protocol,
 	pdrvPvt = callocMustSucceed(1, sizeof(drvPvt), FUNCNAME);
 	pdrvPvt->portName = epicsStrDup(portName);
 	pdrvPvt->connected = 0;
+	pdrvPvt->num_reads = 0;
+	pdrvPvt->num_writes = 0;
+	pdrvPvt->num_reads_total = 0;
+	pdrvPvt->num_writes_total = 0;
 	pdrvPvt->error_count = 0;
     epicsTimeGetCurrent(&(pdrvPvt->last_error));
-	pdrvPvt->user_connect = NULL;
 	pdrvPvt->simulate = simulate;
     pdrvPvt->fd = INVALID_SOCKET;
 
@@ -745,11 +750,12 @@ static void report(void *pvt, FILE *fp, int details)
 	ipAddrToDottedIP(&pdrvPvt->addr, ip, sizeof(ip));
 	
 	fprintf(fp, "%s: connected %s protocol %s simulation mode %s\n", pdrvPvt->portName, (pdrvPvt->connected ? "Yes" : "No"), (pdrvPvt->tcp_protocol ? "TCP" : "UDP"), (pdrvPvt->simulate ? "Yes" : "No") );
+	fprintf(fp, "    This connection number of reads: %lu  writes: %lu\n", pdrvPvt->num_reads, pdrvPvt->num_writes);
+	fprintf(fp, "    Since IOC start number of reads: %lu  writes: %lu\n", pdrvPvt->num_reads_total, pdrvPvt->num_writes_total);
 	fprintf(fp, "    PLC IP: %s  Node (DA1): %d Port: %hu\n", ip, pdrvPvt->node, ntohs(pdrvPvt->addr.sin_port));
 	fprintf(fp, "    Max: %.4fs  Min: %.4fs  Last: %.4fs\n", pdrvPvt->tMax, pdrvPvt->tMin, pdrvPvt->tLast);
 	fprintf(fp, "    client node (SA1): %d SNA: %d DNA: %d Gateway count: %d\n", pdrvPvt->client_node, pdrvPvt->sna, pdrvPvt->dna, FINS_GATEWAY);
 	fprintf(fp, "    Communication error count: %d\n", pdrvPvt->error_count);
-	fprintf(fp, "    User connect: %s\n", (pdrvPvt->user_connect != NULL ? "YES" : "NO"));
 	fprintf(fp, "              fd: %d\n", (int)pdrvPvt->fd);
 }
 
@@ -848,9 +854,14 @@ static asynStatus aconnect(void *pvt, asynUser *pasynUser)
     }
 	pdrvPvt->connected = 1;
 	pdrvPvt->error_count = 0;
-    pdrvPvt->user_connect = pasynUser; /* save for later usage in adisconnect */
 	pasynManager->exceptionConnect(pasynUser);
 	return (asynSuccess);
+}
+
+static void disconnectQueueCallback(asynUser *pasynUser)
+{
+    adisconnect(pasynUser->userPvt, pasynUser);
+    pasynManager->freeAsynUser(pasynUser);
 }
 
 /* need to disconnect with same asyn addr that connected i.e -1 */
@@ -873,15 +884,15 @@ static asynStatus maybe_disconnect(void *pvt, asynUser *pasynUser)
     {
         return asynSuccess;        
     }
-    if (pdrvPvt->user_connect != NULL)
-    {
-		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: %d > %d communication errors so forcing disconnect\n", pdrvPvt->portName, pdrvPvt->error_count, MAX_ERROR_COUNT);
-        return adisconnect(pvt, pdrvPvt->user_connect);
-    }
-    else
-    {
-        return asynError;
-    }        
+
+	asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: %d > %d communication errors so forcing disconnect\n",
+              pdrvPvt->portName, pdrvPvt->error_count, MAX_ERROR_COUNT);
+    asynUser *pasynUserDC = pasynManager->createAsynUser(disconnectQueueCallback, 0);
+	pasynManager->connectDevice(pasynUserDC, pdrvPvt->portName, -1);
+    pasynUserDC->userPvt = pvt;
+    pasynManager->queueRequest(pasynUserDC, asynQueuePriorityConnect, 0.0);
+
+    return asynSuccess;
 }
 
 static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
@@ -890,30 +901,27 @@ static asynStatus adisconnect(void *pvt, asynUser *pasynUser)
 	asynStatus status;
 	int addr;
 	
-    if (pasynUser != pdrvPvt->user_connect)
-    {
-	    status = pasynManager->getAddr(pasynUser, &addr);
+	status = pasynManager->getAddr(pasynUser, &addr);
     
-	    if (status != asynSuccess) return status;
+	if (status != asynSuccess) return status;
 	
-	    asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:disconnect addr %d\n", pdrvPvt->portName, addr);
+	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:disconnect addr %d\n", pdrvPvt->portName, addr);
 
-	    if (addr >= 0)
-	    {
-		    pasynManager->exceptionDisconnect(pasynUser);
-		    return (asynSuccess);
-	    }
-		return (asynError);
+    if (addr >= 0)
+    {
+        pasynManager->exceptionDisconnect(pasynUser);
+        return (asynSuccess);
     }
+
 	asynPrint(pasynUser, ASYN_TRACE_FLOW, "%s finsUDP:full disconnect\n", pdrvPvt->portName);
 	
-	if (!pdrvPvt->connected || pdrvPvt->user_connect == NULL)
+	if (!pdrvPvt->connected)
 	{
 		asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s finsUDP:disconnect port not connected\n", pdrvPvt->portName);
 		return (asynError);
 	}
 	pdrvPvt->connected = 0;
-	pdrvPvt->user_connect = NULL;
+    pdrvPvt->num_reads = pdrvPvt->num_writes = 0;
 	if (  pdrvPvt->tcp_protocol && !pdrvPvt->simulate )
 	{
 	    /* TODO: send a fins shutdown packet */
@@ -1005,7 +1013,10 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
     memcpy(&user_data, &(pasynUser->userData), sizeof(user_data));
     address_shift = (user_data >> 8);
     bit_number = (user_data & 0xff);
-    
+
+    ++(pdrvPvt->num_reads);
+    ++(pdrvPvt->num_reads_total);
+
 /* initialise header */
 
 	pdrvPvt->message[ICF] = 0x80;
@@ -1409,6 +1420,8 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
         if (pdrvPvt->message[SID] != pdrvPvt->reply[SID])
         {
             asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s, SID %d sent, wrong SID %d received.\n", FUNCNAME, pdrvPvt->portName, pdrvPvt->message[SID], pdrvPvt->reply[SID]);
+            /* after a read timeout we seem to get in a loop of getting the SID of the previous message. See if a delay gives it time for the next flushUDP() to clear old message */
+            epicsThreadSleep(1.0);
             return (-1);
         }
 
@@ -1731,7 +1744,10 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
     memcpy(&user_data, &(pasynUser->userData), sizeof(user_data));
     address_shift = (user_data >> 8);
     bit_number = (user_data & 0xff);
-	
+
+    ++(pdrvPvt->num_writes);
+    ++(pdrvPvt->num_writes_total);
+
 /* initialise header */
 
 	pdrvPvt->message[ICF] = 0x80;
@@ -2611,7 +2627,7 @@ static asynStatus ReadFloat64(void *pvt, asynUser *pasynUser, epicsFloat64 *valu
 
 /* send FINS request */
 
-	if (finsSocketRead(pdrvPvt, pasynUser, (void *)&value_f, 2, addr, NULL, sizeof(float)) < 0)
+	if (finsSocketRead(pdrvPvt, pasynUser, (void *)&value_f, 1, addr, NULL, sizeof(float)) < 0)
 	{
         maybe_disconnect(pdrvPvt, pasynUser);
 		return (asynError);
