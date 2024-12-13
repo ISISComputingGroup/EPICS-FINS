@@ -428,6 +428,9 @@ static void destroySocket(SOCKET* s)
     fd_set rfds;
     char buffer[256];
     int nbytes = 0, n = 0;
+    if (*s == INVALID_SOCKET) {
+        return;
+    }
     if (shutdown(*s, SHUT_WR) == 0) /* signal no further writes to remote connection */
     {
         /* wait for any pending data, we check for bytes with 2 second timeout and stop on a timeout, error or zero bytes read */ 
