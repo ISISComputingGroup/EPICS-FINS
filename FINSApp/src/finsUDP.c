@@ -428,6 +428,9 @@ static void destroySocket(SOCKET* s)
     fd_set rfds;
     char buffer[256];
     int nbytes = 0, n = 0;
+    if (*s == INVALID_SOCKET) {
+        return;
+    }
     if (shutdown(*s, SHUT_WR) == 0) /* signal no further writes to remote connection */
     {
         /* wait for any pending data, we check for bytes with 2 second timeout and stop on a timeout, error or zero bytes read */ 
@@ -1003,6 +1006,7 @@ static void flushUDP(const char *func, drvPvt *pdrvPvt, asynUser *pasynUser)
 static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, const size_t nelements, epicsUInt16 address, size_t *transfered, size_t asynSize)
 {
 	static const char *FUNCNAME = "finsSocketRead";
+    static int nonfatal_cpu_error_present = 0;
     int FINS_IGNORE_NONFATAL_CPU =  (getenv("FINS_IGNORE_NONFATAL_CPU") != NULL ? atoi(getenv("FINS_IGNORE_NONFATAL_CPU")) : 0);
 	int recvlen, sendlen = 0;
 	unsigned expectedlen;
@@ -1436,12 +1440,18 @@ static int finsSocketRead(drvPvt *pdrvPvt, asynUser *pasynUser, void *data, cons
     /* check response code */
         if (FINS_IGNORE_NONFATAL_CPU && (pdrvPvt->reply[MRES] == 0x00) && (pdrvPvt->reply[SRES] == 0x40))
         {
-            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s ignoring Non-fatal CPU Unit Error Flag 0x0/0x0", FUNCNAME, pdrvPvt->portName);
+            if (nonfatal_cpu_error_present == 0) {
+                asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s ignoring Non-fatal CPU Unit Error Flag 0x0/0x0\n", FUNCNAME, pdrvPvt->portName);
+                nonfatal_cpu_error_present = 1;
+            }
         }
         else if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
         {
             FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
+            nonfatal_cpu_error_present = 0;
             return (-1);
+        } else {
+            nonfatal_cpu_error_present = 0;
         }
     }
 /* extract data */
@@ -1735,6 +1745,7 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 {
 	static const char *FUNCNAME = "finsSocketWrite";
     int FINS_IGNORE_NONFATAL_CPU =  (getenv("FINS_IGNORE_NONFATAL_CPU") != NULL ? atoi(getenv("FINS_IGNORE_NONFATAL_CPU")) : 0);
+    static int nonfatal_cpu_error_present = 0;
 	int recvlen, sendlen;
 	unsigned expectedlen;
     finsTCPHeader fins_header;
@@ -2171,14 +2182,19 @@ static int finsSocketWrite(drvPvt *pdrvPvt, asynUser *pasynUser, const void *dat
 
     if (FINS_IGNORE_NONFATAL_CPU && (pdrvPvt->reply[MRES] == 0x00) && (pdrvPvt->reply[SRES] == 0x40))
     {
-        asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s ignoring Non-fatal CPU Unit Error Flag 0x0/0x0", FUNCNAME, pdrvPvt->portName);
+        if (nonfatal_cpu_error_present == 0) {
+            nonfatal_cpu_error_present = 1;
+            asynPrint(pasynUser, ASYN_TRACE_ERROR, "%s: port %s ignoring Non-fatal CPU Unit Error Flag 0x0/0x0\n", FUNCNAME, pdrvPvt->portName);
+        }
     }
 	else if ((pdrvPvt->reply[MRES] != 0x00) || (pdrvPvt->reply[SRES] != 0x00))
 	{
+        nonfatal_cpu_error_present = 0;
 		FINSerror(pdrvPvt, pasynUser, FUNCNAME, pdrvPvt->reply[MRES], pdrvPvt->reply[SRES], &(pdrvPvt->reply[RESP]));
 		return (-1);
-	}
-
+	} else {
+        nonfatal_cpu_error_present = 0;
+    }
 	return (0);
 }
 
